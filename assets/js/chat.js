@@ -7,7 +7,7 @@
      • Ne répète jamais la même phrase
      • Réponses contextuelles basées sur le fil de conversation
      • Tarifs : site web à partir de 150€, mobile à partir de 200€
-     • Agent chatbot e-commerce : 200€ paiement unique, 5 produits base, livraison 15–60 jours
+     • Site e-commerce : 200€ paiement unique, 5 produits base, livraison 15–60 jours
      • Capture de prospects → admin@novatvhub.com via FormSubmit
   ============================================================ */
 
@@ -45,7 +45,7 @@
   const PRICING = {
     website:  { from:150, label:'site web',              currency:'€' },
     landing:  { from:150, label:'landing page',          currency:'€' },
-    ecom:     { from:200, label:'agent chatbot e-commerce', currency:'€' },
+    ecom:     { from:200, label:'site e-commerce',          currency:'€' },
     redesign: { from:150, label:'refonte de site',       currency:'€' },
     design:   { from:150, label:'projet design',         currency:'€' },
     seo:      { from:150, label:'SEO / performance',     currency:'€' },
@@ -78,7 +78,7 @@
 
     contact:  "La façon la plus simple de commencer est de laisser votre email ici — quelqu'un de notre équipe vous recontactera rapidement et personnellement. Ou utilisez le formulaire de contact ci-dessous si vous préférez.",
 
-    services_list: "Voici ce que nous proposons chez Nova Dev :\n\n📱 **Développement d'applications mobiles** — à partir de 200€\n🌐 **Site web / Application web** — à partir de 150€\n🛍️ **Agent Chatbot IA E-commerce** — à partir de 200€ (paiement unique)\n🎨 **Design UI/UX** — à partir de 150€\n🔄 **Refonte de site** — à partir de 150€\n⚡ **SEO & Performance** — à partir de 150€\n\nLes prix dépendent de la portée du projet. Lequel vous intéresse le plus ?",
+    services_list: "Voici ce que nous proposons chez Nova Dev :\n\n📱 **Développement d'applications mobiles** — à partir de 200€\n🌐 **Site web / Application web** — à partir de 150€\n🛍️ **Site E-commerce** — à partir de 200€ (paiement unique, 5 produits de base)\n🎨 **Design UI/UX** — à partir de 150€\n🔄 **Refonte de site** — à partir de 150€\n⚡ **SEO & Performance** — à partir de 150€\n\nLes prix dépendent de la portée du projet. Lequel vous intéresse le plus ?",
   };
 
   /* ── PICK FRESH (anti-répétition) ────────────────────────── */
@@ -148,7 +148,7 @@
   const NEG_ANGLES = [
     // Angle 0 — Clarification du prix (toujours en premier)
     (ctx) => {
-      if (ctx === 'ecom') return `Pour être clair — notre agent chatbot IA e-commerce démarre à **200€ — paiement unique**. Aucun abonnement, aucun frais mensuel. Vous payez une fois, le bot vous appartient pour toujours.\n\nLe pack de base inclut **5 produits entraînés** et est livré en **15–20 jours**. Besoin de plus de produits ? On peut ajouter des packs supplémentaires.\n\nQuelle est votre boutique ?`;
+      if (ctx === 'ecom') return `Pour être clair — notre site e-commerce démarre à **200€ — paiement unique**. Aucun abonnement, aucun frais mensuel. Vous payez une fois, le site vous appartient pour toujours.\n\nLe pack de base inclut **5 produits listés** et est livré en **15–20 jours**. Besoin de plus de produits ? On peut étendre le catalogue.\n\nQuel type de boutique souhaitez-vous créer ?`;
       const p = PRICING[ctx] || PRICING.website;
       return `Pour être précis — nos projets de **${p.label}** démarrent à seulement **${p.from}${p.currency}**. C'est déjà l'un des tarifs les plus compétitifs du marché pour une vraie qualité premium. La plupart des agences facturent 5 à 20 fois plus.\n\nQuel est le budget que vous avez en tête ? Je ferai de mon mieux pour trouver une portée qui vous convient.`;
     },
@@ -162,17 +162,17 @@
     () => `Je veux vraiment trouver une solution qui vous convient. 🤝 Voici ce qu'on peut envisager :\n\n✅ **Livraison par phases** — commencer léger, évoluer ensuite\n✅ **Périmètre ciblé** — projet impactant au prix d'entrée\n✅ **Flexibilité de paiement** — on peut discuter d'un échelonnement\n\nSi vous partagez votre email, l'équipe vous préparera un plan sur mesure dans votre budget — sans pression.`,
     // Angle 5 — Valeur de la qualité professionnelle
     (ctx) => {
-      if (ctx === 'ecom') return `Pensez à ce qu'un chatbot vous économise : le temps de support client, les demandes manquées la nuit, les paniers abandonnés faute de réponse. À **200€ paiement unique** — sans frais mensuels — il se rentabilise rapidement et continue de travailler 24h/24.\n\nVoulez-vous voir exactement ce qui est inclus dans le pack de base ?`;
+      if (ctx === 'ecom') return `Pensez à ce qu'un bon site e-commerce fait pour vous : il est ouvert 24h/24, convertit les visiteurs en acheteurs et inspire confiance automatiquement. À **200€ paiement unique** — sans frais mensuels — il se rentabilise avec une seule vente.\n\nVoulez-vous voir exactement ce qui est inclus dans le pack de base ?`;
       return `Je comprends la sensibilité au budget — mais je vous rappelle doucement : **le coût d'un site mal construit est souvent supérieur** à celui d'un site fait correctement. Un site mal fait fait fuir les visiteurs, nuit à la crédibilité et nécessite souvent des corrections coûteuses plus tard.\n\nNous livrons de la qualité qui tient dans le temps — et à 150€ pour commencer, c'est une vraie valeur. Voulez-vous savoir ce qui est inclus à ce tarif ?`;
     },
     // Angle 6 — Succès clients
     (ctx) => {
-      if (ctx === 'ecom') return `Nos clients e-commerce signalent généralement moins de messages de support répétitifs, une meilleure couverture 24h/24 et plus d'achats finalisés — parce que les visiteurs obtiennent une réponse instantanée au moment précis où ils en ont besoin.\n\nJ'aimerais vous montrer ce qu'on pourrait créer pour votre boutique. Voulez-vous partager votre email afin que notre équipe vous envoie les détails ?`;
+      if (ctx === 'ecom') return `Nos clients e-commerce constatent généralement plus d'achats finalisés, une image de marque plus forte et une meilleure confiance client — parce qu'un site professionnel rend l'achat simple et rassurant.\n\nJ'aimerais vous montrer ce qu'on pourrait créer pour votre boutique. Voulez-vous partager votre email afin que notre équipe vous envoie les détails ?`;
       return `Nos clients — des entreprises comme la vôtre — voient généralement un **retour clair dans les semaines suivant le lancement** : meilleure qualité des demandes entrantes, image de marque renforcée, plus de temps économisé grâce à un site qui répond vraiment aux questions.\n\nJ'aimerais vous montrer ce qu'on pourrait construire pour votre budget spécifique. Voulez-vous partager avec quoi vous travaillez ?`;
     },
     // Angle 7 — Clôture douce finale
     (ctx) => {
-      if (ctx === 'ecom') return `Je respecte votre position, et je veux être direct : **200€ paiement unique** est sincèrement le tarif le plus compétitif que vous trouverez pour un agent chatbot IA personnalisé et correctement entraîné — sans raccourcis, sans abonnement, sans frais cachés.\n\nNotre équipe peut préparer une proposition sans engagement montrant exactement ce que votre boutique obtiendrait. Partagez votre email et vous l'aurez dans les 24h. 🙌`;
+      if (ctx === 'ecom') return `Je respecte votre position, et je veux être direct : **200€ paiement unique** est sincèrement le tarif le plus compétitif que vous trouverez pour un site e-commerce professionnel — sans raccourcis, sans abonnement, sans frais cachés.\n\nNotre équipe peut préparer une proposition sans engagement montrant exactement ce que votre boutique obtiendrait. Partagez votre email et vous l'aurez dans les 24h. 🙌`;
       return `Je respecte votre position, et je veux être honnête : à **150€ pour commencer**, on est déjà positionnés pour être accessibles aux entreprises en croissance. Je ne peux pas aller plus bas en bonne conscience tout en livrant la qualité que vous méritez.\n\nCe que je *peux* faire, c'est demander à l'équipe de préparer une proposition sans engagement, taillée exactement à vos objectifs et budget. Partagez votre email et vous l'aurez dans 24h. 🙌`;
     },
   ];
@@ -314,7 +314,7 @@
       else if (low.includes('site web') || low.includes('website') || low.includes('web')) topicContext = 'website';
     }
     if (!lead.service && topicContext) {
-      const labels = { mobile:"Application mobile", ecom:"Agent Chatbot E-commerce", landing:"Landing page", redesign:"Refonte de site", design:"Design UI/UX", website:"Site web", seo:"SEO & Performance" };
+      const labels = { mobile:"Application mobile", ecom:"Site E-commerce", landing:"Landing page", redesign:"Refonte de site", design:"Design UI/UX", website:"Site web", seo:"SEO & Performance" };
       lead.service = labels[topicContext] || '';
     }
   }
@@ -400,8 +400,8 @@
 
       case 'ecom':
         topicContext = 'ecom';
-        if (!lead.service) lead.service = 'Agent Chatbot E-commerce';
-        reply = `Nous créons un **agent chatbot IA personnalisé** pour votre boutique e-commerce — entraîné sur vos produits, vos politiques et le ton de votre marque, pour gérer les questions clients 24h/24 sans intervention de votre part.\n\n💰 **À partir de 200€ — paiement unique** (aucun abonnement, aucun frais mensuel)\n📦 **Pack de base : 5 produits** entraînés\n⏱️ **Livraison : 15 à 60 jours** selon la complexité\n\nLe bot gère les questions sur les produits, le stock, les prix, le suivi de commande, les retours et bien plus. Voulez-vous savoir ce qui est inclus ?`;
+        if (!lead.service) lead.service = 'Site E-commerce';
+        reply = `Nous créons un **site e-commerce sur mesure** pour votre business — conçu autour de vos produits, votre marque et vos clients, pour vendre en ligne professionnellement dès le premier jour.\n\n💰 **À partir de 200€ — paiement unique** (aucun abonnement, aucun frais mensuel)\n📦 **Pack de base : 5 produits listés**\n⏱️ **Livraison : 15 à 60 jours** selon la complexité\n\nLe site inclut les pages produits, le panier, le paiement et tout ce dont vos clients ont besoin. Voulez-vous savoir ce qui est inclus ?`;
         break;
 
       case 'landing':
@@ -429,8 +429,8 @@
       case 'timeline':
         if (topicContext === 'mobile') reply = "Les applications mobiles prennent généralement **8–16 semaines** du brief au lancement, selon la complexité.";
         else if (topicContext === 'landing') reply = "Les landing pages sont généralement prêtes en **1–2 semaines** — rapide, ciblé, efficace.";
-        else if (topicContext === 'ecom') reply = "Notre agent chatbot e-commerce est livré en **15 à 60 jours** — le pack de base (5 produits) est généralement prêt en 15–20 jours. Les catalogues plus larges ou les intégrations personnalisées peuvent aller jusqu'à 60 jours. Nous vous donnerons une estimation précise après examen de votre brief.";
-        else reply = "Les délais varient selon le projet :\n\n📄 **Landing page** — 1–2 semaines\n🌐 **Site complet** — 3–6 semaines\n🛍️ **Agent chatbot e-commerce** — 15–60 jours\n📱 **Application mobile** — 8–16 semaines\n\nNous vous donnerons un calendrier précis lors de votre consultation.";
+        else if (topicContext === 'ecom') reply = "Notre site e-commerce est livré en **15 à 60 jours** — le pack de base (5 produits) est généralement prêt en 15–20 jours. Les catalogues plus larges ou les fonctionnalités personnalisées peuvent aller jusqu'à 60 jours. Nous vous donnerons une estimation précise après examen de votre brief.";
+        else reply = "Les délais varient selon le projet :\n\n📄 **Landing page** — 1–2 semaines\n🌐 **Site complet** — 3–6 semaines\n🛍️ **Site e-commerce** — 15–60 jours\n📱 **Application mobile** — 8–16 semaines\n\nNous vous donnerons un calendrier précis lors de votre consultation.";
         break;
 
       case 'price':
@@ -452,9 +452,9 @@
       case 'value':
         if (topicContext === 'ecom') {
           reply = pickFresh([
-            "À 200€ paiement unique, votre chatbot travaille 24h/24 — répondant aux questions produits, vérifiant le stock, guidant les clients vers l'achat — sans que vous dépensiez un centime de plus chaque mois. C'est un **actif permanent** pour votre boutique.",
-            "Pensez-y : un panier abandonné récupéré par le bot, une question client répondue à minuit plutôt qu'ignorée — c'est déjà de la valeur. À **200€ paiement unique**, le retour est rapide.",
-            "Un chatbot entraîné réduit le temps de support, capture des prospects la nuit et donne aux acheteurs des réponses instantanées. **200€ paiement unique, sans abonnement** — c'est l'un des investissements les plus intelligents pour toute boutique e-commerce.",
+            "À 200€ paiement unique, votre site e-commerce travaille 24h/24 — présentant vos produits, traitant les commandes, inspirant confiance — sans que vous dépensiez un centime de plus chaque mois. C'est un **actif permanent** pour votre business.",
+            "Pensez-y : une seule vente via votre site rembourse tout le projet. À **200€ paiement unique**, le retour est rapide.",
+            "Un site e-commerce professionnel renforce la crédibilité, augmente les conversions et donne confiance aux acheteurs. **200€ paiement unique, sans abonnement** — c'est l'un des investissements les plus intelligents pour tout vendeur.",
           ]);
         } else {
           reply = pickFresh([
@@ -585,7 +585,7 @@
       showTyping();
       setTimeout(() => {
         hideTyping();
-        appendMsg("Bonjour ! 👋 Je suis l'assistant Nova Dev.\n\nJe peux répondre à toutes vos questions sur nos services — **sites web à partir de 150€**, **applications mobiles à partir de 200€**, **agents chatbot IA e-commerce à partir de 200€ (paiement unique)**, délais, technologie, processus et bien plus.\n\nQue souhaitez-vous construire ?", 'bot');
+        appendMsg("Bonjour ! 👋 Je suis l'assistant Nova Dev.\n\nJe peux répondre à toutes vos questions sur nos services — **sites web à partir de 150€**, **applications mobiles à partir de 200€**, **sites e-commerce à partir de 200€ (paiement unique, 5 produits)**, délais, technologie, processus et bien plus.\n\nQue souhaitez-vous construire ?", 'bot');
       }, 850);
     }, 300);
   }
