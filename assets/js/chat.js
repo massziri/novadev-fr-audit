@@ -190,9 +190,9 @@
   /* ── Message d'accueil ── */
   function greet() {
     const greetings = [
-      "👋 Bonjour ! Je suis l'assistant Nova Dev. Nous créons des sites web premium à partir de 150€. Quel type de projet avez-vous en tête ?",
-      "👋 Bonjour ! Nova Dev — agence web & mobile premium en France. Sites à partir de 990€, landing pages à partir de 150€. Comment puis-je vous aider ?",
-      "👋 Salut ! Bienvenue chez Nova Dev. Nous développons des sites web et applications pour les entreprises françaises. Quel est votre projet ?"
+      "👋 Bonjour ! Je suis l'assistant Nova Dev. Landing pages à partir de 150€, apps mobiles à partir de 200€. Quel projet avez-vous en tête ?",
+      "👋 Bonjour ! Nova Dev — agence web & mobile premium. Landing pages 150€, e-commerce 200€, apps mobiles 200€. Comment puis-je vous aider ?",
+      "👋 Salut ! Bienvenue chez Nova Dev. Sites web, e-commerce et apps mobiles à partir de 200€. Quel est votre projet ?"
     ];
     const msg = greetings[Math.floor(Math.random() * greetings.length)];
     addMessage(msg, 'bot');
