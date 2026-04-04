@@ -323,7 +323,7 @@
     /* Type de projet — détection STRICTE, uniquement phrases explicites */
     if (!mem.topicContext) {
       if (/application mobile|app mobile|android|ios|flutter/.test(t))                           { mem.topicContext='mobile';   mem.topicConfirmed=true; }
-      else if (/e[\-\s]?commerce|boutique en ligne|shopify|woocommerce|vendre en ligne|woo/.test(t)){ mem.topicContext='ecom';     mem.topicConfirmed=true; }
+      else if (/e[\-\s]?commerce|boutique en ligne|shopify|woocommerce|vendre en ligne|woo|\bvendre\b/.test(t)){ mem.topicContext='ecom';     mem.topicConfirmed=true; }
       else if (/\blanding page\b|page de vente|page d.atterrissage/.test(t))                      { mem.topicContext='landing';  mem.topicConfirmed=true; }
       else if (/refonte|redesign|moderniser|rafraichir/.test(t))                                   { mem.topicContext='redesign'; mem.topicConfirmed=true; }
       else if (/site web|website|web app|nouveau site|cr[eé]er un site|besoin d.un site/.test(t)) { mem.topicContext='website';  mem.topicConfirmed=true; }
@@ -385,20 +385,26 @@
            'rapide','urgent','dans combien'))
       return 'timeline';
 
-    if (is('application mobile','app mobile','android','ios','flutter','react native'))
+    if (is('application mobile','app mobile','android','flutter','react native') ||
+        /\bios\b/.test(t))
       return 'mobile';
 
+    // IMPORTANT: vendre/vends seuls déclenchent l'ecom — vérifié AVANT design
     if (is('e-commerce','ecommerce','boutique en ligne','shopify','woocommerce',
-           'vendre en ligne','panier','commande'))
+           'vendre en ligne','panier','commande en ligne') ||
+        /\bvendre\b|\bje vends\b|\bon vend\b|\bvente en ligne\b|\bvente online\b|\bvendre mes\b|\bvendre des\b|\bvendre un\b/.test(t))
       return 'ecom';
 
-    if (is('seo','referencement','google','moteur de recherche','visibilite','trafic'))
+    if (is('seo','referencement','moteur de recherche','visibilite organique','trafic organique','positionnement google'))
       return 'seo';
 
     if (is('refonte','redesign','moderniser','rafraichir','site existant','site actuel'))
       return 'redesign';
 
-    if (is('design','interface','maquette','prototype','wireframe','branding','ui','ux'))
+    // ATTENTION : 'ui' et 'ux' seuls causent des faux positifs ("oui" contient "ui", "veux" contient "ux")
+    // On utilise des regex avec limites de mots
+    if (is('design','interface','maquette','prototype','wireframe','branding') ||
+        /\bui\b|\bux\b|\bui\/ux\b/.test(t))
       return 'design';
 
     if (is('landing page','page d atterrissage','page de vente','page unique'))
