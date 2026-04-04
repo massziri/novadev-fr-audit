@@ -19,7 +19,7 @@ const SYSTEM_PROMPT = `Tu es un assistant IA commercial intelligent, chaleureux 
    N'utilise leur prénom que s'ils se sont clairement présentés.
 
 2. RÉALITÉ DES BUDGETS — Applique toujours ces règles :
-   - Landing pages à partir de 150€ / Sites web à partir de 990€ / E-commerce à partir de 1 200€ / Apps mobiles à partir de 200€
+   - Landing pages à partir de 150€ / Sites web à partir de 990€ / E-commerce à partir de 200€ / Apps mobiles à partir de 200€
    - Sois honnête sur les contraintes budgétaires mais propose toujours des alternatives
    - NE PROMETS JAMAIS en dessous du prix minimum
 
@@ -37,7 +37,7 @@ const SYSTEM_PROMPT = `Tu es un assistant IA commercial intelligent, chaleureux 
 - Services :
   • Landing pages — à partir de 150€ (1-2 semaines)
   • Sites web professionnels/corporate — à partir de 990€ (2-5 pages, 2-4 semaines)
-  • Sites e-commerce — à partir de 1 200€ (15-60 jours)
+  • Sites e-commerce — à partir de 200€ (15-60 jours)
   • Refonte de site — à partir de 990€ (3-5 semaines)
   • Design UI/UX — à partir de 500€
   • SEO & performance — à partir de 300€
@@ -49,7 +49,7 @@ const SYSTEM_PROMPT = `Tu es un assistant IA commercial intelligent, chaleureux 
 ━━━ TARIFS EXACTS (utilise ces chiffres précis) ━━━
 - Landing page : à partir de 150€
 - Site professionnel : à partir de 990€
-- Site e-commerce : à partir de 1 200€
+- Site e-commerce : à partir de 200€
 - Refonte de site : à partir de 990€
 - Application mobile : à partir de 200€
 - Très compétitifs — la plupart des agences françaises facturent 3-10× plus
