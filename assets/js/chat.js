@@ -1,5 +1,5 @@
 /* ============================================================
-   Nova Dev Widget Chat IA v8.0  — Français
+   Nova Dev Widget Chat IA v8.2  — Français
    LLM: Pollinations.ai (GRATUIT, sans clé API) via /api/chat
    Capture de leads: FormSubmit + Brevo (côté serveur)
    WhatsApp: +212665103031
