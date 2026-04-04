@@ -42,27 +42,56 @@
   <!-- Umami Analytics (conforme RGPD, sans cookies) -->
   <!-- <script async src="https://YOUR_UMAMI_DOMAIN.vercel.app/script.js" data-website-id="YOUR_UMAMI_WEBSITE_ID"></script> -->
 
-  <!-- Schema.org — Données structurées pour SEO local France -->
+  <!-- Google Search Console Verification -->
+  <meta name="google-site-verification" content="GOOGLE_VERIFICATION_CODE_FR" />
+  <!-- Bing / Microsoft Webmaster Verification -->
+  <meta name="msvalidate.01" content="BING_VERIFICATION_CODE_FR" />
+  <!-- Yandex Webmaster Verification -->
+  <meta name="yandex-verification" content="YANDEX_VERIFICATION_CODE_FR" />
+
+  <!-- Schema.org — Données structurées SEO complètes : Agence + Services + FAQ + Offres + Fil d'Ariane -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "ProfessionalService",
+        "@type": ["ProfessionalService", "Organization"],
         "@id": "https://novadev-fr-audit.vercel.app/#organization",
         "name": "Nova Dev",
-        "description": "Agence premium de création de sites web et développement mobile pour entreprises ambitieuses en France.",
+        "alternateName": "Nova Dev Agence Web",
+        "description": "Agence premium de création de sites web, refonte et développement mobile pour entreprises ambitieuses en France et en Europe. Sites web à partir de 150€.",
         "url": "https://novadev-fr-audit.vercel.app/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://novadev-fr-audit.vercel.app/assets/img/og-image.png"
+        },
+        "image": "https://novadev-fr-audit.vercel.app/assets/img/og-image.png",
         "sameAs": [
           "https://novadev-audit.vercel.app/",
-          "https://github.com/massziri"
+          "https://github.com/massziri",
+          "https://www.linkedin.com/company/nova-dev-agency",
+          "https://twitter.com/novadevagency",
+          "https://www.facebook.com/novadevagency",
+          "https://www.instagram.com/novadevagency"
         ],
-        "serviceType": ["Création de site web", "Design web", "Développement mobile", "E-commerce", "SEO"],
-        "areaServed": ["France", "Paris", "Lyon", "Marseille", "Europe"],
-        "priceRange": "€€€",
+        "serviceType": ["Création de site web", "Design web", "Refonte de site", "Développement mobile", "E-commerce", "Landing page", "SEO", "UI/UX Design"],
+        "areaServed": [
+          { "@type": "City", "name": "Paris" },
+          { "@type": "City", "name": "Lyon" },
+          { "@type": "City", "name": "Marseille" },
+          { "@type": "City", "name": "Bordeaux" },
+          { "@type": "City", "name": "Toulouse" },
+          { "@type": "Country", "name": "France" },
+          { "@type": "Country", "name": "Belgique" },
+          { "@type": "Country", "name": "Suisse" },
+          { "@type": "Continent", "name": "Europe" }
+        ],
+        "priceRange": "€€",
+        "currenciesAccepted": "EUR, USD",
+        "paymentAccepted": "Virement bancaire, Carte de crédit",
         "contactPoint": {
           "@type": "ContactPoint",
-          "contactType": "sales",
+          "contactType": "service client",
           "availableLanguage": ["French", "English"]
         }
       },
@@ -70,8 +99,141 @@
         "@type": "WebSite",
         "@id": "https://novadev-fr-audit.vercel.app/#website",
         "url": "https://novadev-fr-audit.vercel.app/",
-        "name": "Nova Dev — Agence Web Premium France",
-        "inLanguage": "fr"
+        "name": "Nova Dev — Agence Web & Mobile Premium France",
+        "description": "Création de sites web premium à partir de 150€. Landing pages, sites professionnels, e-commerce et apps mobiles pour entreprises en France.",
+        "inLanguage": "fr",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://novadev-fr-audit.vercel.app/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://novadev-fr-audit.vercel.app/#webpage",
+        "url": "https://novadev-fr-audit.vercel.app/",
+        "name": "Agence premium de création de sites web | Nova Dev France",
+        "isPartOf": { "@id": "https://novadev-fr-audit.vercel.app/#website" },
+        "about": { "@id": "https://novadev-fr-audit.vercel.app/#organization" },
+        "inLanguage": "fr",
+        "datePublished": "2025-01-01",
+        "dateModified": "2026-04-04"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://novadev-fr-audit.vercel.app/#landing-page-service",
+        "serviceType": "Création de Landing Page",
+        "name": "Création de Landing Page",
+        "description": "Landing pages haute conversion à partir de 150€. Design professionnel, optimisé pour générer des leads et des ventes.",
+        "provider": { "@id": "https://novadev-fr-audit.vercel.app/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "150",
+          "priceCurrency": "EUR",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "150",
+            "priceCurrency": "EUR",
+            "unitText": "à partir de"
+          }
+        },
+        "areaServed": "France"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://novadev-fr-audit.vercel.app/#website-service",
+        "serviceType": "Création de Site Web",
+        "name": "Création de Site Web Professionnel",
+        "description": "Sites web professionnels et corporate à partir de 150€. 2 à 5 pages, livraison en 2 à 4 semaines.",
+        "provider": { "@id": "https://novadev-fr-audit.vercel.app/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "150",
+          "priceCurrency": "EUR"
+        }
+      },
+      {
+        "@type": "Service",
+        "@id": "https://novadev-fr-audit.vercel.app/#ecommerce-service",
+        "serviceType": "Développement E-commerce",
+        "name": "Création de Site E-commerce",
+        "description": "Boutiques e-commerce complètes à partir de 200€. Intégration paiement, gestion produits, SEO inclus.",
+        "provider": { "@id": "https://novadev-fr-audit.vercel.app/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "200",
+          "priceCurrency": "EUR"
+        }
+      },
+      {
+        "@type": "Service",
+        "@id": "https://novadev-fr-audit.vercel.app/#redesign-service",
+        "serviceType": "Refonte de Site Web",
+        "name": "Refonte de Site Web",
+        "description": "Refonte complète de votre site web à partir de 150€. Nouveau design, UX améliorée, meilleures performances.",
+        "provider": { "@id": "https://novadev-fr-audit.vercel.app/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "150",
+          "priceCurrency": "EUR"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://novadev-fr-audit.vercel.app/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Combien coûte la création d'un site web chez Nova Dev ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Nos tarifs commencent à 150€ pour les landing pages et sites professionnels. L'e-commerce démarre à 200€ et les applications mobiles à 200€. Prix fixes et transparents, sans frais cachés."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Quel est le délai de création d'un site web ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Les landing pages sont livrées en 3 à 7 jours. Les sites professionnels en 2 à 4 semaines. Les projets e-commerce prennent 15 à 60 jours. Les applications mobiles entre 8 et 16 semaines selon la complexité."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Travaillez-vous avec des entreprises en dehors de la France ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Oui. Nova Dev travaille avec des clients en France, Belgique, Suisse et dans toute l'Europe. Nous communiquons en français et en anglais."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Quelles technologies utilisez-vous ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Nous utilisons React, Next.js, TypeScript, Node.js, Shopify, WordPress ainsi que React Native et Flutter pour les applications mobiles."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Proposez-vous des services de refonte de site web ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Oui. Notre service de refonte démarre à 150€. Nous modernisons votre site avec un nouveau design, une UX améliorée et de meilleures performances."
+            }
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Accueil",
+            "item": "https://novadev-fr-audit.vercel.app/"
+          }
+        ]
       }
     ]
   }
