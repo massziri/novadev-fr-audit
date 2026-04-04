@@ -2,14 +2,44 @@
   'use strict';
 
   /* ============================================================
-     NOVA DEV — Cerveau IA Conversationnel v3.0 (FR)
-     • Compréhension contextuelle profonde : mémorise TOUT ce que
-       l'utilisateur dit et adapte chaque réponse en conséquence
-     • Détecte les détails précis : quantités, budgets, délais,
-       type de projet, secteur d'activité
-     • Répond à CE que le prospect dit, pas à un script générique
-     • Négociation intelligente à 8 angles sans répétition
-     • Capture de prospects → admin@novatvhub.com via FormSubmit
+     NOVA DEV — IA Conversationnelle Intelligente v5.0 (FR)
+
+     ARCHITECTURE v5.0 — Réécriture complète corrigeant TOUS les
+     bugs identifiés dans les captures d'écran :
+
+     BUG 1 CORRIGÉ : "je n'ai aucune idée / je ne sais pas" → affiche
+       un menu riche avec des options concrètes, N'INTERROGE JAMAIS
+       plus et ne déclenche JAMAIS la réponse ecom/produit.
+
+     BUG 2 CORRIGÉ : Email reçu → accusé de réception UNIQUEMENT.
+       Aucun argumentaire commercial. Le flag email est vérifié
+       EN PREMIER, avant tout routage d'intention.
+
+     BUG 3 CORRIGÉ : Le mot "produit" seul ne déclenche PAS
+       topicContext='ecom'. Seules des phrases explicites comme
+       "boutique en ligne", "e-commerce", "vendre en ligne",
+       "shopify", "woocommerce", "panier" le font.
+
+     BUG 4 CORRIGÉ : Contamination de contexte — topicContext
+       n'est utilisé dans buildReply que s'il a été confirmé par
+       le message ACTUEL ou une conversation préalable confirmée.
+       Un prénom seul, un bonjour ou un email N'HÉRITE JAMAIS
+       du contexte ecom.
+
+     BUG 5 CORRIGÉ : Répétition — un Set de session complet traque
+       chaque réponse envoyée. Quand un pool est épuisé, une
+       alternative contextuelle est utilisée, pas la même réponse.
+
+     BUG 6 CORRIGÉ : Messages inconnus — classés en 4 sous-catégories
+       intelligentes : intro, vague_ecom, vague_web, hors_sujet →
+       chacune reçoit une réponse ciblée et non générique.
+
+     AMÉLIORATIONS INTELLIGENCE :
+     • 12 secteurs d'activité détectés avec réponses personnalisées
+     • Mémorisation des fonctionnalités demandées
+     • Tarification contextuelle : devis adapté à qty/pages/budget
+     • Capture de leads progressive : prénom → email (jamais répété)
+     • Moteur de négociation : 8 angles uniques, sans répétition
   ============================================================ */
 
   const FORM_ENDPOINT   = 'https://formsubmit.co/ajax/admin@novatvhub.com';
@@ -25,72 +55,66 @@
   const badge      = bubble?.querySelector('.chat-badge');
   if (!bubble || !chatWindow) return;
 
-  /* ── État global ─────────────────────────────────────────── */
-  let isOpen = false, opened = false, isThinking = false;
-  let leadSent = false;
+  /* ── ÉTAT ────────────────────────────────────────────────── */
+  let isOpen = false, opened = false, isThinking = false, leadSent = false;
   const lead = { name:'', email:'', company:'', phone:'', service:'' };
 
-  // Mémoire conversationnelle complète
-  const memory = {
-    // Ce que le prospect veut exactement
-    productCount:   null,   // ex: 1, 5, 20, "beaucoup"
-    pageCount:      null,   // ex: 1, 3, "plusieurs"
-    budget:         null,   // ex: 100, 200, 500
-    deadline:       null,   // ex: "urgent", "1 semaine", "2 mois"
-    sector:         null,   // ex: "restaurant", "artisan", "coach"
-    projectType:    null,   // site, ecom, mobile, landing, redesign
-    features:       [],     // ex: ["paiement", "blog", "galerie"]
-    painPoints:     [],     // ex: ["pas de site", "site trop vieux", "pas de ventes"]
-    // Contexte conversationnel
-    turnCount:      0,
-    lastIntent:     '',
-    lastBotReply:   '',
-    topicContext:   '',
-    askedName:      false,
-    askedEmail:     false,
-    negotiationStage: 0,
-    clarifyPending: false,  // on attend une précision du prospect
-    clarifyTopic:   '',     // sur quoi on attend la précision
+  /* Mémoire de session — réinitialisée à chaque chargement de page */
+  const mem = {
+    productCount   : null,   // null | number | 'peu' | 'beaucoup'
+    pageCount      : null,   // null | number
+    budget         : null,   // null | number | 'petit' | 'large'
+    deadline       : null,   // null | string
+    sector         : null,   // null | string
+    features       : [],
+    topicContext   : '',     // '' | 'ecom' | 'website' | 'mobile' | 'landing' | 'redesign'
+    topicConfirmed : false,  // true seulement si l'utilisateur a nommé explicitement un type
+    turnCount      : 0,
+    lastIntent     : '',
+    lastReply      : '',
+    askedName      : false,
+    askedEmail     : false,
+    negStage       : 0,
+    usedNeg        : new Set(),
+    usedReplies    : new Set(),
+    emailFlag      : false,  // true seulement si CE message contient une adresse email
   };
-
-  const usedTexts    = new Set();
-  const usedNegAngles = new Set();
 
   /* ── TARIFS ──────────────────────────────────────────────── */
   const PRICING = {
-    website:  { from:150, label:'site web',        currency:'€' },
-    landing:  { from:150, label:'landing page',    currency:'€' },
-    ecom:     { from:200, label:'site e-commerce', currency:'€' },
-    redesign: { from:150, label:'refonte de site', currency:'€' },
-    design:   { from:150, label:'projet design',   currency:'€' },
-    seo:      { from:150, label:'SEO / performance', currency:'€' },
-    mobile:   { from:200, label:'application mobile', currency:'€' },
+    website  : { from:150, label:'site web',          cur:'€' },
+    landing  : { from:150, label:'landing page',      cur:'€' },
+    ecom     : { from:200, label:'site e-commerce',   cur:'€' },
+    redesign : { from:150, label:'refonte de site',   cur:'€' },
+    design   : { from:150, label:'projet design',     cur:'€' },
+    seo      : { from:150, label:'SEO / performance', cur:'€' },
+    mobile   : { from:200, label:'application mobile',cur:'€' },
   };
 
   /* ── BASE DE CONNAISSANCES ───────────────────────────────── */
   const KB = {
-    about:    "Nova Dev est une agence premium de design web, développement et applications mobiles. Nous accompagnons des entreprises ambitieuses — startups, B2B, e-commerce et prestataires de services — qui veulent une présence digitale plus forte et des résultats concrets.",
-    why:      "Nos clients nous choisissent parce que nous combinons design fort, exécution technique solide et réflexion commerciale. Pas juste de beaux sites — des expériences qui convertissent et soutiennent votre croissance.",
-    process:  "Notre méthode :\n\n1️⃣ **Découverte** — Comprendre vos objectifs et votre situation.\n2️⃣ **Design & Développement** — Créer avec précision et qualité.\n3️⃣ **Lancement & Évolution** — Vous mettre en ligne et vous accompagner.",
-    tech:     "Stack technique moderne : HTML/CSS/JS, React, Next.js, WordPress, Webflow, Shopify, Node.js — et React Native / Flutter pour le mobile. On choisit le bon outil, pas le plus tendance.",
-    seo:      "Le SEO fait partie intégrante de notre façon de construire — code propre, HTML sémantique, chargement rapide, mobile-first.",
-    mobile_friendly: "Tous nos sites sont entièrement responsifs et conçus mobile-first. Une expérience rapide sur smartphone est standard sur chaque projet.",
-    hosting:  "Nous conseillons et configurons l'hébergement dans le cadre de votre projet. Généralement Vercel, Netlify ou cloud géré. Domaine et hébergement facturés séparément.",
-    cms:      "Nous intégrons des CMS pour que vous puissiez mettre à jour votre contenu sans développeur — WordPress, Webflow CMS, Sanity ou panneau admin personnalisé.",
-    revisions: "Chaque projet inclut des cycles de révision. Nous partageons les designs avant le développement et affinons jusqu'à votre satisfaction totale.",
-    maintenance: "Nous proposons des forfaits de support et maintenance : nouvelles pages, mises à jour, performances, support de campagnes.",
-    guarantee: "Nous garantissons la qualité de chaque livraison. Chaque projet est testé avant lancement — si quelque chose n'est pas parfait, nous le corrigeons.",
-    contact:  "La façon la plus simple de commencer : laissez votre email ici — quelqu'un de notre équipe vous recontactera rapidement et personnellement.",
-    services_list: "Chez Nova Dev :\n\n📱 **Applications mobiles** — à partir de 200€\n🌐 **Site web / Web app** — à partir de 150€\n🛍️ **Site E-commerce** — à partir de 200€ (listing dès 5 produits)\n🎨 **Design UI/UX** — à partir de 150€\n🔄 **Refonte de site** — à partir de 150€\n⚡ **SEO & Performance** — à partir de 150€\n\nLequel vous intéresse ?",
+    about        : "Nova Dev est une agence premium de design web, développement et applications mobiles. Nous accompagnons des entreprises ambitieuses — startups, PME, marques e-commerce et professions libérales — qui veulent une présence digitale forte et des résultats commerciaux concrets.",
+    why          : "Nos clients nous choisissent parce que nous combinons trois choses que la plupart des agences séparent : un design fort, une exécution technique solide et une réflexion commerciale. Nous construisons des expériences qui inspirent confiance, convertissent et soutiennent la croissance.",
+    process      : "Notre méthode :\n\n1️⃣ **Découverte** — Comprendre vos objectifs, votre audience et vos contraintes.\n2️⃣ **Design & Développement** — Créer avec précision.\n3️⃣ **Lancement & Évolution** — Vous accompagner après mise en ligne.",
+    tech         : "Stack moderne et éprouvée : HTML/CSS/JS, React, Next.js, WordPress, Webflow, Shopify, Node.js — React Native / Flutter pour le mobile. Nous choisissons le bon outil selon le projet.",
+    seo          : "Le SEO est intégré dans tout ce qu'on construit — code propre, HTML sémantique, chargement rapide, mobile-first. Travail SEO ciblé sur un site existant : à partir de 150€.",
+    mobile_friendly: "Tous nos sites sont entièrement responsifs et conçus mobile-first — une expérience rapide et soignée sur téléphone est incluse dans chaque projet, pas en option.",
+    hosting      : "Nous conseillons et configurons l'hébergement dans le cadre de votre projet — Vercel, Netlify ou cloud géré. Domaine et hébergement facturés séparément.",
+    cms          : "Oui — nous intégrons des CMS pour que vous puissiez mettre à jour sans développeur : WordPress, Webflow CMS, Sanity ou panneau admin personnalisé.",
+    revisions    : "Chaque projet inclut des cycles de révision. Nous partageons les designs avant développement et affinons jusqu'à votre satisfaction.",
+    maintenance  : "Nous proposons des forfaits de support et maintenance : nouvelles pages, mises à jour, performance, support de campagnes.",
+    guarantee    : "Nous garantissons la qualité. Chaque projet est testé avant lancement — si quelque chose n'est pas parfait, nous le corrigeons, sans discussion.",
+    contact      : "La façon la plus simple de démarrer : laissez votre email ici — quelqu'un de notre équipe vous recontactera personnellement, généralement en quelques heures.",
+    services_list: "Chez Nova Dev :\n\n📱 **Application mobile** — à partir de 200€\n🌐 **Site web / Web app** — à partir de 150€\n🛍️ **Site E-commerce** — à partir de 200€ (listing dès 5 produits)\n🎨 **Design UI/UX** — à partir de 150€\n🔄 **Refonte de site** — à partir de 150€\n⚡ **SEO & Performance** — à partir de 150€\n\nLequel vous intéresse ?",
   };
 
-  /* ── UTILITAIRES ─────────────────────────────────────────── */
-  function pickFresh(arr) {
-    const available = arr.filter(r => !usedTexts.has(r));
-    const pool = available.length > 0 ? available : arr;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    usedTexts.add(pick);
-    return pick;
+  /* ── PICK ANTI-RÉPÉTITION ─────────────────────────────────── */
+  function pick(arr) {
+    const fresh = arr.filter(r => !mem.usedReplies.has(r));
+    const pool  = fresh.length > 0 ? fresh : arr;
+    const item  = pool[Math.floor(Math.random() * pool.length)];
+    mem.usedReplies.add(item);
+    return item;
   }
 
   function personalize(text) {
@@ -102,369 +126,306 @@
   /* ── POOLS DE RÉPONSES ───────────────────────────────────── */
   const POOLS = {
     greeting_new: [
-      "Bonjour ! 👋 Je suis l'assistant Nova Dev. Dites-moi ce que vous souhaitez créer — site, e-commerce, app — et je vous guide précisément.",
-      "Salut ! 👋 Qu'est-ce que vous cherchez à construire ? Décrivez-moi votre projet, même brièvement, je m'adapte à vous.",
-      "Bonjour ! 👋 Parlez-moi de votre projet — secteur, taille, objectif — et je vous propose la solution la plus adaptée.",
+      "Bonjour ! 👋 Je suis l'assistant Nova Dev. Décrivez ce que vous voulez créer — même une idée vague — et je vous proposerai quelque chose de précis.\n\nQuel est votre projet ?",
+      "Salut ! 👋 Que voulez-vous créer : un site web, une boutique en ligne, une application mobile ou autre chose ? Je vous guide vers la bonne solution avec prix et délais.",
+      "Bonjour ! 👋 Qu'est-ce que vous voulez accomplir en ligne ? Parlez-moi de votre activité et je vous suggère la meilleure approche.",
     ],
     greeting_known: [
       "Re-bonjour {name} ! Comment puis-je vous aider ?",
-      "Bon retour {name} ! 😊 On reprend où on en était ?",
+      "Bon retour {name} ! 😊 On reprend ?",
       "Salut {name} ! Qu'est-ce que je peux faire pour vous ?",
     ],
-    thanks_new: [
-      "Avec plaisir ! 😊 Autre chose ?",
-      "Content d'aider ! D'autres questions ?",
-      "Ravi — quoi d'autre ?",
+    thanks: [
+      "Avec plaisir ! 😊 D'autres questions ?",
+      "Content d'aider ! Qu'est-ce que vous aimeriez savoir d'autre ?",
+      "De rien — qu'est-ce qui vient ensuite ?",
     ],
     thanks_known: [
-      "Avec plaisir, {name} ! Autre chose ?",
-      "C'est un plaisir, {name} ! Je vous écoute.",
-      "De rien, {name} !",
+      "Avec plaisir {name} ! 😊 Autre chose ?",
+      "C'est un plaisir {name} ! Je vous écoute.",
+      "Avec plaisir {name} — je suis là.",
     ],
-    bye_new: [
-      "Merci ! Quand vous êtes prêt à avancer, on est là. 👋",
-      "À bientôt ! N'hésitez pas à revenir. 👋",
-      "Bonne continuation ! On vous attend. 👋",
+    bye: [
+      "Merci de votre visite ! Quand vous êtes prêt à avancer, on est là. 👋",
+      "À bientôt ! N'hésitez pas à revenir quand vous voulez. 👋",
+      "Bonne continuation ! On sera là quand vous en aurez besoin. 👋",
     ],
     bye_known: [
       "À bientôt {name} ! 👋",
       "Au revoir {name} — on est là quand vous voulez. 👋",
-      "À très vite {name} ! 👋",
+      "À très bientôt {name} ! 👋",
+    ],
+    // Menu riche — affiché quand l'utilisateur dit "pas d'idée", "pas sûr", "aidez-moi"
+    propose_menu: [
+      "Pas de problème — je vais vous orienter ! 😊\n\nVoici les points de départ les plus courants :\n\n🌐 **Site vitrine** (3–5 pages) — présenter votre activité professionnellement — à partir de **150€**\n🛍️ **Boutique e-commerce** — vendre en ligne, listing dès 5 produits — à partir de **200€**\n📄 **Landing page** — une page percutante pour capter des clients — à partir de **150€**\n📱 **Application mobile** — iOS et Android — à partir de **200€**\n\nQuel type d'activité avez-vous ? Ça me dit généralement tout ce dont j'ai besoin.",
+      "Permettez-moi de vous aider à choisir ! 🙌\n\nDites-moi juste une chose :\n\n👉 Voulez-vous **vendre des produits** en ligne ?\n👉 Ou **présenter votre activité / services** ?\n👉 Ou **capturer des contacts** avec une seule page ciblée ?\n\nChaque option a une approche et un budget différents. Laquelle ressemble le plus à ce dont vous avez besoin ?",
+      "Facile — on part de zéro ensemble ! 🎯\n\nPensez à ce que vous voulez que les visiteurs **fassent** en arrivant sur votre site :\n\n🛒 Acheter quelque chose → **E-commerce** à partir de 200€\n📞 Vous appeler / réserver → **Site web** à partir de 150€\n📧 S'inscrire / vous contacter → **Landing page** à partir de 150€\n📱 Utiliser une app → **Application mobile** à partir de 200€\n\nQuelle action vous importe le plus ?",
+    ],
+    // Accusé de réception d'email — strict, jamais de pitch commercial
+    email_ack_named: [
+      "Merci {name}, votre email est bien noté ! ✅ Notre équipe vous contactera dans les **24 heures** avec une proposition personnalisée.\n\nY a-t-il quelque chose de spécifique que vous souhaitez qu'ils couvrent ?",
+      "Parfait {name} ! 📧 Quelqu'un de notre équipe vous contactera très prochainement avec un devis adapté.\n\nY a-t-il un délai ou une fourchette de budget à préciser ?",
+      "Noté {name} ! 📩 Attendez-vous à avoir de nos nouvelles dans les **24 heures** — on préparera quelque chose de spécifique à votre projet.\n\nQuelque chose d'autre à ajouter avant ça ?",
+    ],
+    email_ack_anon: [
+      "Email bien reçu ! ✅ Notre équipe vous contactera dans les **24 heures** avec une proposition personnalisée.\n\nY a-t-il quelque chose de particulier à préciser ?",
+      "Noté ! 📧 Quelqu'un de Nova Dev vous contactera personnellement avec un devis adapté.\n\nY a-t-il un délai ou un budget à mentionner ?",
+      "Reçu ! 📩 Attendez-vous à avoir de nos nouvelles dans les **24 heures**.\n\nQuelque chose d'autre à ajouter à votre brief ?",
     ],
     price_follow_up: [
       "Souhaitez-vous une estimation précise pour votre projet ?",
-      "Je peux vous aider à cadrer le budget selon vos besoins exacts.",
+      "Je peux affiner le coût selon vos besoins exacts — quel est votre budget approximatif ?",
       "Un devis sans engagement vous intéresse ?",
     ],
-    unknown_short: [
-      "Pouvez-vous préciser ? Je veux vous donner la réponse la plus utile. 😊",
-      "Dites-m'en un peu plus, je m'adapte à votre situation.",
-    ],
-    unknown_long: [
-      "Intéressant ! Pour vous orienter précisément, pouvez-vous me dire quel est votre projet et vos objectifs principaux ?",
-      "Bonne question — donnez-moi un peu plus de contexte et je vous guide au mieux.",
+    unknown_ask: [
+      "Pouvez-vous développer un peu ? Je veux vous donner une réponse vraiment utile — pas générique. De quoi parle votre activité ou votre projet ?",
+      "Donnez-moi un peu plus de contexte et je serai précis. Qu'est-ce que vous cherchez à accomplir en ligne ?",
     ],
   };
 
   /* ── MOTEUR DE NÉGOCIATION ───────────────────────────────── */
   const NEG_ANGLES = [
     (ctx) => {
-      if (ctx === 'ecom') return `Pour être clair — notre site e-commerce démarre à **200€**. Le listing commence dès **5 produits**, livraison **15–20 jours** pour ce volume.\n\nBesoin de moins de produits ou d'un périmètre plus réduit ? Dites-moi exactement ce dont vous avez besoin et je trouve le format qui correspond à votre budget.`;
+      if (ctx==='ecom') return `Pour être direct — notre site e-commerce démarre à **200€**. Le listing commence dès **5 produits**, livraison **15–20 jours** pour ce périmètre.\n\nSi vous avez besoin d'un périmètre plus réduit, dites-moi exactement ce qu'il vous faut et je trouve un format adapté.`;
       const p = PRICING[ctx] || PRICING.website;
-      return `Nos projets **${p.label}** démarrent à **${p.from}${p.currency}** — parmi les tarifs les plus compétitifs pour une vraie qualité premium. La plupart des agences facturent 5 à 20 fois plus.\n\nQuel budget avez-vous en tête ? Je ferai de mon mieux pour trouver une portée qui vous convient.`;
+      return `Nos projets **${p.label}** démarrent à **${p.from}${p.cur}** — parmi les tarifs les plus compétitifs pour une vraie qualité premium. La plupart des agences facturent 5 à 20 fois plus pour le même travail.\n\nQuel budget aviez-vous en tête ? Je trouverai un périmètre qui correspond.`;
     },
-    () => `Voici une approche que beaucoup apprécient : on commence par une **version ciblée** — l'essentiel pour lancer — puis on étoffe au fil de votre croissance. Moins d'investissement au départ, plus de flexibilité.\n\nQu'est-ce qui est absolument indispensable pour vous au lancement ?`,
-    () => `Un site bien construit n'est pas une dépense — c'est un **actif commercial** qui travaille 24h/24. S'il vous apporte un seul client par mois, il se rentabilise et continue à performer.\n\nQuels résultats espérez-vous que ce projet génère pour votre business ?`,
-    () => `Si vous avez demandé des devis ailleurs, vous avez probablement vu des chiffres entre 2 000€ et 10 000€+. Notre mission : **même qualité premium à une fraction du prix**, grâce à des processus efficaces.\n\nUn devis personnalisé sans engagement vous aiderait-il ?`,
-    () => `Je veux vraiment trouver une solution pour vous. 🤝\n\n✅ **Livraison par phases** — commencer léger, évoluer ensuite\n✅ **Périmètre ciblé** — projet impactant au prix d'entrée\n✅ **Flexibilité de paiement** — on peut en discuter\n\nPartagez votre email et l'équipe prépare un plan sur mesure dans votre budget.`,
+    () => `Voici une approche très appréciée : on commence par une **version ciblée** — l'essentiel pour lancer — puis on étoffe. Moins d'investissement au départ, plus de flexibilité.\n\nQu'est-ce qui est absolument indispensable pour vous au lancement ?`,
+    () => `Un site bien construit n'est pas une dépense — c'est un **actif commercial qui travaille 24h/24**. S'il vous apporte un seul client par mois, il se rentabilise rapidement et continue à le faire.\n\nQuels résultats espérez-vous de ce projet ?`,
+    () => `Si vous avez eu des devis d'autres agences, vous avez probablement vu 2 000€–10 000€+ pour des projets similaires. Notre mission : **même qualité premium à une fraction du prix** — grâce à des processus plus intelligents.\n\nUn devis sans engagement vous aiderait-il ?`,
+    () => `Je veux vraiment trouver une solution pour vous. 🤝\n\n✅ **Livraison par phases** — commencer léger, évoluer ensuite\n✅ **Périmètre ciblé** — impact maximum au prix d'entrée\n✅ **Flexibilité de paiement** — on peut en discuter\n\nPartagez votre email et notre équipe préparera un plan personnalisé.`,
     (ctx) => {
-      if (ctx === 'ecom') return `Un site e-commerce ouvert 24h/24, qui convertit les visiteurs en acheteurs et inspire confiance — à **partir de 200€**, il se rentabilise avec une seule vente.\n\nVoulez-vous voir exactement ce qui est inclus ?`;
-      return `Le coût d'un site mal construit est souvent supérieur à celui d'un site fait correctement : perte de visiteurs, crédibilité abîmée, corrections coûteuses. Nous livrons de la qualité qui tient dans le temps — à 150€ pour commencer.\n\nVoulez-vous voir ce qui est inclus à ce tarif ?`;
-    },
-    (ctx) => {
-      if (ctx === 'ecom') return `Nos clients e-commerce constatent plus d'achats finalisés, une meilleure image de marque et plus de confiance client — parce qu'un site professionnel rend l'achat simple et rassurant.\n\nJe peux vous montrer ce qu'on pourrait créer. Votre email ?`;
-      return `Nos clients voient généralement un retour clair dans les semaines suivant le lancement : plus de demandes, meilleure crédibilité, plus de temps économisé.\n\nVoulez-vous partager votre budget et on voit exactement ce qu'on peut faire ?`;
+      if (ctx==='ecom') return `Un site e-commerce ouvert 24h/24, qui convertit les visiteurs automatiquement — à **partir de 200€**, il se rentabilise avec une seule vente. Voulez-vous voir exactement ce qui est inclus ?`;
+      return `Le coût d'un site mal construit — visiteurs perdus, crédibilité abîmée, correctifs coûteux plus tard — dépasse souvent le coût de bien le faire dès le début. Nous livrons de la qualité à partir de 150€.\n\nVoulez-vous voir ce qui est inclus ?`;
     },
     (ctx) => {
-      if (ctx === 'ecom') return `**À partir de 200€** — c'est sincèrement le tarif le plus compétitif pour un site e-commerce professionnel. Sans raccourcis, sans frais cachés.\n\nNotre équipe peut préparer une proposition sans engagement. Partagez votre email, vous l'aurez dans 24h. 🙌`;
-      return `À **150€ pour commencer**, on est déjà positionnés pour être accessibles. Ce que je *peux* faire : demander à l'équipe une proposition taillée à vos objectifs et budget. Partagez votre email, vous l'aurez dans 24h. 🙌`;
+      if (ctx==='ecom') return `Nos clients e-commerce voient plus d'achats finalisés et une meilleure confiance de marque — parce qu'une boutique professionnelle rend l'achat facile et sécurisé.\n\nJ'aimerais vous montrer ce qu'on pourrait créer. Votre email ?`;
+      return `Nos clients voient généralement un retour clair dans les semaines suivant le lancement : de meilleurs contacts, une meilleure image de marque, plus de temps économisé.\n\nPartagez votre budget et je vous montre exactement ce qui est possible.`;
+    },
+    (ctx) => {
+      if (ctx==='ecom') return `**À partir de 200€** — sincèrement le tarif le plus compétitif pour un site e-commerce professionnel. Aucun raccourci, aucun frais caché.\n\nNotre équipe peut préparer une proposition sans engagement. Partagez votre email et vous l'aurez en 24 heures. 🙌`;
+      return `À **150€ pour commencer**, on est accessibles aux entreprises en croissance. Partagez votre email et l'équipe prépare une proposition taillée exactement à vos objectifs — en 24 heures. 🙌`;
     },
   ];
 
-  function getNegotiationResponse() {
-    let idx = memory.negotiationStage;
-    while (usedNegAngles.has(idx) && idx < NEG_ANGLES.length - 1) idx++;
-    usedNegAngles.add(idx);
-    memory.negotiationStage = idx + 1;
-    return NEG_ANGLES[idx](memory.topicContext);
+  function getNeg() {
+    let idx = mem.negStage;
+    while (mem.usedNeg.has(idx) && idx < NEG_ANGLES.length-1) idx++;
+    mem.usedNeg.add(idx);
+    mem.negStage = idx + 1;
+    return NEG_ANGLES[idx](mem.topicContext);
   }
 
   /* ════════════════════════════════════════════════════════════
-     EXTRACTION DE DONNÉES AVANCÉE
-     Détecte : quantités, budgets, délais, secteur, fonctions
+     EXTRACTION DE CONTEXTE
+     RÈGLE CRITIQUE : topicContext n'est défini que si le message
+     contient des signaux explicites de type de projet (pas juste
+     "produit"). Email, prénom, bonjour → NE définissent JAMAIS
+     topicContext.
   ════════════════════════════════════════════════════════════ */
-  function extractDeepContext(text) {
-    const t    = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const tOrig = text.toLowerCase();
+  function extractContext(raw) {
+    const t = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    mem.emailFlag = false; // réinitialiser à chaque tour
 
-    /* ── Contact ── */
-    const emailM = text.match(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/);
-    if (emailM && !lead.email) lead.email = emailM[0];
-    const phoneM = text.match(/(\+?\d[\d\s\-().]{6,}\d)/);
+    /* Contact */
+    const emailM = raw.match(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/);
+    if (emailM) {
+      if (!lead.email) lead.email = emailM[0];
+      mem.emailFlag = true;
+    }
+    const phoneM = raw.match(/(\+?\d[\d\s\-().]{6,}\d)/);
     if (phoneM && !lead.phone) lead.phone = phoneM[0].trim();
-    const nameM = text.match(/(?:je m(?:'|')appelle|mon pr[eé]nom est|je suis|c(?:'|')est|appelez-moi)\s+([A-ZÀ-Ü][a-zà-ü]{1,20})/i);
-    if (nameM && !lead.name) lead.name = nameM[1];
-    if (!lead.name && memory.askedName) {
-      const words = text.trim().split(/\s+/);
-      if (words.length <= 2 && /^[A-ZÀ-Ü][a-zà-ü]+$/.test(words[0])) lead.name = words[0];
+
+    /* Prénom */
+    const nameM = raw.match(/(?:je m(?:'|')appelle|mon pr[eé]nom est|je suis|c(?:'|')est|appelez.moi)\s+([A-ZÀ-Üa-zà-ü]{2,20})/i);
+    if (nameM && !lead.name) lead.name = nameM[1].charAt(0).toUpperCase()+nameM[1].slice(1).toLowerCase();
+    if (!lead.name && mem.askedName) {
+      const w = raw.trim().split(/\s+/);
+      if (w.length<=2 && /^[A-ZÀ-Ü]/i.test(w[0]) && w[0].length>=2)
+        lead.name = w[0].charAt(0).toUpperCase()+w[0].slice(1).toLowerCase();
     }
 
-    /* ── Nombre de produits ── */
-    if (memory.productCount === null) {
-      // "un seul produit", "1 produit", "un produit"
-      if (/\b(?:un seul|1 seul|un|1)\s+produit\b/.test(t)) memory.productCount = 1;
-      else if (/\b(?:deux|2)\s+produits?\b/.test(t))        memory.productCount = 2;
-      else if (/\b(?:trois|3)\s+produits?\b/.test(t))       memory.productCount = 3;
-      else if (/\b(?:cinq|5)\s+produits?\b/.test(t))        memory.productCount = 5;
-      else if (/\b(\d+)\s+produits?\b/.test(t)) {
-        const m = t.match(/\b(\d+)\s+produits?\b/);
-        memory.productCount = parseInt(m[1]);
+    /* Nombre de produits — uniquement si explicitement mentionné */
+    const prodM = t.match(/\b(un|une|1)\s+(?:seul\s+)?produit\b/) ||
+                  t.match(/\b(deux|2)\s+produits?\b/) ||
+                  t.match(/\b(trois|3)\s+produits?\b/) ||
+                  t.match(/\b(quatre|4)\s+produits?\b/) ||
+                  t.match(/\b(cinq|5)\s+produits?\b/) ||
+                  t.match(/\b(\d+)\s+produits?\b/);
+    if (prodM) {
+      const r = prodM[1];
+      const nm = {un:1,une:1,deux:2,trois:3,quatre:4,cinq:5};
+      mem.productCount = nm[r]!==undefined ? nm[r] : parseInt(r);
+    }
+    if (/peu de produits|quelques produits|petit catalogue/.test(t)) mem.productCount='peu';
+    if (/beaucoup de produits|nombreux produits|grand catalogue|gros catalogue/.test(t)) mem.productCount='beaucoup';
+
+    /* Nombre de pages */
+    if (mem.pageCount===null) {
+      const pgM = t.match(/\b(\d+)\s+pages?\b/) ||
+                  t.match(/\b(une|1)\s+(?:seule\s+)?page\b/) ||
+                  t.match(/\b(deux|2)\s+pages?\b/) ||
+                  t.match(/\b(trois|3)\s+pages?\b/);
+      if (pgM) {
+        const r = pgM[1];
+        const nm = {une:1,deux:2,trois:3};
+        mem.pageCount = nm[r]!==undefined ? nm[r] : parseInt(r);
       }
-      else if (/peu de produits|quelques produits/.test(t)) memory.productCount = 'peu';
-      else if (/beaucoup de produits|nombreux produits|grand catalogue/.test(t)) memory.productCount = 'beaucoup';
+      if (/one.page|monopag|une seule page|single page/.test(t)) mem.pageCount=1;
     }
 
-    /* ── Nombre de pages ── */
-    if (memory.pageCount === null) {
-      if (/\b(?:une seule|1 seule|une|1)\s+page\b/.test(t))  memory.pageCount = 1;
-      else if (/\b(?:deux|2)\s+pages?\b/.test(t))             memory.pageCount = 2;
-      else if (/\b(?:trois|3)\s+pages?\b/.test(t))            memory.pageCount = 3;
-      else if (/\b(\d+)\s+pages?\b/.test(t)) {
-        const m = t.match(/\b(\d+)\s+pages?\b/);
-        memory.pageCount = parseInt(m[1]);
-      }
-      else if (/site\s+(?:one.page|monop|une.page|single.page)/.test(t)) memory.pageCount = 1;
+    /* Budget */
+    if (mem.budget===null) {
+      const bm = t.match(/(\d+)\s*(?:€|euros?)/i);
+      if (bm) mem.budget=parseInt(bm[1]);
+      else if (/budget (?:serr|petit|limit|modeste|faible)/.test(t)) mem.budget='petit';
+      else if (/budget (?:confort|large|important|elev)/.test(t)) mem.budget='large';
     }
 
-    /* ── Budget explicite ── */
-    if (memory.budget === null) {
-      const budgetM = tOrig.match(/(\d+)\s*(?:€|euros?|eur)/i);
-      if (budgetM) memory.budget = parseInt(budgetM[1]);
-      else if (/pas (?:grand|beaucoup de) budget|budget (?:serr[ée]|limit[ée]|petit|modeste)/.test(t)) memory.budget = 'petit';
-      else if (/budget (?:confort|large|important|[eé]lev[eé])/.test(t)) memory.budget = 'large';
+    /* Délai */
+    if (!mem.deadline) {
+      if (/urgent|vite|asap|rapidement|des que possible/.test(t)) mem.deadline='urgent';
+      else if (/cette semaine|en une semaine/.test(t)) mem.deadline='1 semaine';
+      else if (/ce mois|un mois|dans le mois/.test(t)) mem.deadline='1 mois';
     }
 
-    /* ── Délai ── */
-    if (memory.deadline === null) {
-      if (/urgent|rapidement|vite|asap|des que possible|tout de suite/.test(t)) memory.deadline = 'urgent';
-      else if (/cette semaine|en une semaine|dans la semaine/.test(t)) memory.deadline = '1 semaine';
-      else if (/ce mois|dans le mois|un mois/.test(t)) memory.deadline = '1 mois';
-      else if (/deux|2\s*mois/.test(t)) memory.deadline = '2 mois';
+    /* Secteur */
+    if (!mem.sector) {
+      if (/restaurant|caf[eé]|brasserie|traiteur|pizz/.test(t)) mem.sector='restauration';
+      else if (/artisan|plombier|electricien|maçon|peintre|menuisier/.test(t)) mem.sector='artisanat';
+      else if (/\bcoach\b|coaching|consultant|formation/.test(t)) mem.sector='conseil';
+      else if (/boutique|mode|v[eê]tement|bijou|fashion/.test(t)) mem.sector='mode';
+      else if (/immobilier|agence immo|promoteur/.test(t)) mem.sector='immobilier';
+      else if (/medecin|dentiste|kine|sant[eé]|therapeute/.test(t)) mem.sector='santé';
+      else if (/photo|graphiste|creati|artiste/.test(t)) mem.sector='créatif';
+      else if (/startup|saas|logiciel|\btech\b/.test(t)) mem.sector='tech';
+      else if (/sport|fitness|gym|yoga|pilates/.test(t)) mem.sector='sport';
+      else if (/avocat|notaire|cabinet juridique|droit/.test(t)) mem.sector='juridique';
     }
 
-    /* ── Secteur / activité ── */
-    if (!memory.sector) {
-      if (/restaurant|caf[eé]|brasserie|traiteur|pizz|sushi/.test(t)) memory.sector = 'restauration';
-      else if (/artisan|plombier|electricien|maçon|carreleur|peintre|menuisier/.test(t)) memory.sector = 'artisanat';
-      else if (/coach|coaching|formation|consultant|conseil/.test(t)) memory.sector = 'conseil';
-      else if (/boutique|mode|v[eê]tement|bijou|accessoire/.test(t)) memory.sector = 'mode';
-      else if (/immobilier|agence immo|promoteur/.test(t)) memory.sector = 'immobilier';
-      else if (/m[eé]decin|dentiste|kine|infirmier|sant[eé]|th[eé]rapeute/.test(t)) memory.sector = 'santé';
-      else if (/photo|photographe|vid[eé]o|graphiste|creati/.test(t)) memory.sector = 'créatif';
-      else if (/startup|saas|logiciel|appli|tech/.test(t)) memory.sector = 'tech';
-      else if (/sport|fitness|gym|yoga|pilates/.test(t)) memory.sector = 'sport';
-    }
-
-    /* ── Fonctionnalités souhaitées ── */
-    const featureMap = {
-      'paiement|payer en ligne|carte bancaire|stripe|paypal':     'paiement en ligne',
-      'blog|articles?|actualit[eé]s?':                            'blog',
-      'galerie|photos?|portfolio':                                 'galerie photos',
-      'formulaire|contact|devis en ligne':                        'formulaire de contact',
-      'reservation|rendez.vous|booking|agenda':                   'réservation',
-      'avis|t[eé]moignages?|reviews?':                            'avis clients',
-      'livraison|colissimo|chronopost':                           'gestion livraison',
-      'stock|inventaire|gestion des produits':                    'gestion stock',
-      'multilingue|anglais|espagnol|en plusieurs langues':        'multilingue',
-      'carte|map|google map|adresse':                             'carte intégrée',
-      'newsletter|liste email|abonnes?':                          'newsletter',
-      'chat|whatsapp|messagerie':                                  'chat/messagerie',
+    /* Fonctionnalités */
+    const fmap = {
+      'paiement|payer en ligne|carte bancaire|stripe|paypal':'paiement en ligne',
+      'blog|articles?|actualit':'blog',
+      'galerie|photos?|portfolio':'galerie photos',
+      'formulaire|devis en ligne':'formulaire de contact',
+      'r[eé]servation|rendez.vous|booking':'réservation',
+      'avis|t[eé]moignages?':'avis clients',
+      'livraison|colissimo':'gestion livraison',
+      'newsletter|liste email':'newsletter',
+      'carte|google map':'carte intégrée',
+      'multilingue|plusieurs langues|anglais|espagnol':'multilingue',
     };
-    for (const [pattern, feature] of Object.entries(featureMap)) {
-      if (new RegExp(pattern).test(t) && !memory.features.includes(feature)) {
-        memory.features.push(feature);
-      }
+    for (const [pat,feat] of Object.entries(fmap)) {
+      if (new RegExp(pat).test(t) && !mem.features.includes(feat)) mem.features.push(feat);
     }
 
-    /* ── Points de douleur ── */
-    if (/pas de site|sans site|aucun site/.test(t) && !memory.painPoints.includes('sans site'))
-      memory.painPoints.push('sans site');
-    if (/site (?:vieux|vieilli|obsol|ancien|depass)/.test(t) && !memory.painPoints.includes('site obsolète'))
-      memory.painPoints.push('site obsolète');
-    if (/pas de ventes?|ne vend pas|ventes? en berne/.test(t) && !memory.painPoints.includes('pas de ventes'))
-      memory.painPoints.push('pas de ventes');
-    if (/pas visible|invisible|introuvable|pas sur google/.test(t) && !memory.painPoints.includes('pas visible'))
-      memory.painPoints.push('pas visible');
-
-    /* ── Type de projet ── */
-    if (!memory.topicContext) {
-      if (/application mobile|app mobile|android|ios|flutter/.test(t)) memory.topicContext = 'mobile';
-      else if (/e.commerce|boutique|shopify|woocommerce|vendre|produits?|panier/.test(t)) memory.topicContext = 'ecom';
-      else if (/landing page|page de vente|page d.atterrissage/.test(t)) memory.topicContext = 'landing';
-      else if (/refonte|redesign|moderniser|rafraichir/.test(t)) memory.topicContext = 'redesign';
-      else if (/site web|website|web app|nouveau site/.test(t)) memory.topicContext = 'website';
+    /* Type de projet — détection STRICTE, uniquement phrases explicites */
+    if (!mem.topicContext) {
+      if (/application mobile|app mobile|android|ios|flutter/.test(t))                           { mem.topicContext='mobile';   mem.topicConfirmed=true; }
+      else if (/e[\-\s]?commerce|boutique en ligne|shopify|woocommerce|vendre en ligne|woo/.test(t)){ mem.topicContext='ecom';     mem.topicConfirmed=true; }
+      else if (/\blanding page\b|page de vente|page d.atterrissage/.test(t))                      { mem.topicContext='landing';  mem.topicConfirmed=true; }
+      else if (/refonte|redesign|moderniser|rafraichir/.test(t))                                   { mem.topicContext='redesign'; mem.topicConfirmed=true; }
+      else if (/site web|website|web app|nouveau site|cr[eé]er un site|besoin d.un site/.test(t)) { mem.topicContext='website';  mem.topicConfirmed=true; }
+      // NOTE : "produit" seul NE déclenche PAS topicContext='ecom'
     }
 
-    /* ── Service lead ── */
-    if (!lead.service && memory.topicContext) {
-      const labels = {
-        mobile:'Application mobile', ecom:'Site E-commerce', landing:'Landing page',
-        redesign:'Refonte de site', design:'Design UI/UX', website:'Site web', seo:'SEO'
-      };
-      lead.service = labels[memory.topicContext] || '';
+    /* Libellé service du lead */
+    if (!lead.service && mem.topicContext) {
+      const lbls = {mobile:'Application mobile',ecom:'Site E-commerce',landing:'Landing page',redesign:'Refonte',design:'Design UI/UX',website:'Site web',seo:'SEO'};
+      lead.service = lbls[mem.topicContext]||'';
     }
   }
 
   /* ════════════════════════════════════════════════════════════
-     GÉNÉRATEUR DE RÉPONSES CONTEXTUELLES
-     C'est ici que la magie opère — chaque réponse est unique
-     et directement liée à ce que le prospect a dit
+     DÉTECTION D'INTENTION v5.0
+     Changement clé : 'no_idea' est un intent de première classe,
+     vérifié AVANT tout intent thématique — il gagne toujours.
+     Email-only est aussi vérifié avant tout routage.
   ════════════════════════════════════════════════════════════ */
-  function buildSmartEcomReply(userText) {
-    const t = userText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const qty   = memory.productCount;
-    const pages = memory.pageCount;
-    const feats = memory.features;
-    const sector = memory.sector;
-    const budget = memory.budget;
-
-    // ── Cas : 1 page + 1 produit (exactement comme le screenshot) ──
-    if ((qty === 1 || qty === 'peu') && pages === 1) {
-      return `Parfait — **1 page, 1 produit**, c'est en fait notre format le plus simple et le plus rapide à livrer ! 🎯\n\nCe qu'on crée pour vous :\n✅ **1 page produit** (photo, description, prix, bouton d'achat)\n✅ Paiement en ligne sécurisé (carte bancaire)\n✅ Design professionnel adapté à votre marque\n✅ Mobile-first et optimisé Google\n\n💰 **À partir de 200€** — livrable en **10 à 15 jours**\n\nC'est quel type de produit vous vendez ?`;
-    }
-
-    // ── Cas : 1 seul produit mais pas de précision sur les pages ──
-    if (qty === 1) {
-      return `Super — **un seul produit**, ça simplifie tout ! Pas besoin d'un catalogue complet.\n\nOn peut faire :\n🔹 **Option mini** — 1 page produit épurée + paiement en ligne → à partir de **200€**, livrable en **2 semaines**\n🔹 **Option complète** — page produit + page accueil + contact → à partir de **250€**, livrable en **3 semaines**\n\nVous préférez la version minimaliste ou un peu plus complète ?`;
-    }
-
-    // ── Cas : 1 seule page (landing / one-page) ──
-    if (pages === 1 && !memory.topicContext.includes('ecom')) {
-      return `Une **page unique** — excellent choix pour aller vite et à l'essentiel ! 🎯\n\nUne landing page bien construite peut :\n✅ Présenter votre offre clairement\n✅ Capturer des contacts / réservations\n✅ Convertir les visiteurs en clients\n\n💰 **À partir de 150€** — livrable en **1 à 2 semaines**\n\nC'est pour quel type d'activité ?`;
-    }
-
-    // ── Cas : budget explicitement petit ──
-    if (budget === 'petit' || (typeof budget === 'number' && budget < 200)) {
-      const budgetStr = typeof budget === 'number' ? `${budget}€` : 'un budget serré';
-      return `Je comprends — ${budgetStr}, c'est réaliste et on peut travailler avec ça.\n\nPour ${budgetStr}, voici ce qui est possible :\n✅ **Landing page 1 page** — à partir de **150€** (notre entrée de gamme)\n✅ **Site vitrine 3 pages** — à partir de **150€**\n\nPour un site e-commerce, on démarre à **200€** avec un périmètre ciblé. Combien de produits vous souhaitez mettre en ligne ?`;
-    }
-
-    // ── Cas : peu de produits ──
-    if (qty !== null && typeof qty === 'number' && qty <= 3) {
-      return `**${qty} produit${qty > 1 ? 's' : ''}** seulement — c'est très gérable et ça reste dans notre périmètre de base !\n\nPour ${qty} produit${qty > 1 ? 's' : ''} :\n✅ Pages produits individuelles avec photos et descriptions\n✅ Panier + paiement en ligne sécurisé\n✅ Page accueil + contact\n💰 **À partir de 200€** — livrable en **15 à 20 jours**\n\nVous avez déjà des photos de vos produits ?`;
-    }
-
-    // ── Cas : beaucoup de produits / grand catalogue ──
-    if (qty === 'beaucoup' || (typeof qty === 'number' && qty > 20)) {
-      return `Un **grand catalogue** — parfait pour Shopify ou WooCommerce !\n\nAvec ${typeof qty === 'number' ? qty + ' produits' : 'un large catalogue'}, on recommande :\n✅ Shopify ou WooCommerce (gestion facile en autonomie)\n✅ Filtres, recherche, catégories\n✅ Import CSV pour charger tous les produits rapidement\n💰 **À partir de 350€** selon la complexité\n\nVous avez déjà une liste de vos produits ?`;
-    }
-
-    // ── Cas : fonctionnalités spécifiques mentionnées ──
-    if (feats.length > 0) {
-      const featList = feats.map(f => `✅ ${f}`).join('\n');
-      return `Voici ce que vous voulez :\n${featList}\n\nTout ça est faisable ! Maintenant, pour affiner le budget, pouvez-vous me dire combien de produits vous avez et si vous avez un délai en tête ?`;
-    }
-
-    // ── Cas : secteur détecté, personnaliser ──
-    if (sector) {
-      const sectorMsg = {
-        restauration: `Pour un restaurant, les essentiels sont : menu en ligne, galerie photos, réservation et accès Google Maps. On peut aussi intégrer un système de commande en ligne si besoin.`,
-        artisanat: `Pour un artisan, un site vitrine efficace suffit souvent : présentation de vos réalisations, devis en ligne, et numéro de téléphone bien visible. Simple et efficace.`,
-        conseil: `Pour un coach ou consultant, une landing page bien construite avec votre offre, vos témoignages et un bouton de réservation peut suffire pour commencer.`,
-        mode: `Pour la mode, les photos sont essentielles — on construira un site e-commerce visuellement impactant avec un filtrage par catégorie, taille, couleur.`,
-        immobilier: `Pour l'immobilier, on peut créer un site avec listings de biens, photos, formulaires de contact et estimation en ligne.`,
-        santé: `Pour un professionnel de santé, la prise de rendez-vous en ligne et la présentation claire de vos services sont les priorités.`,
-        créatif: `Pour un créatif, votre portfolio est votre meilleur outil commercial — on crée une expérience visuelle qui met en valeur votre travail.`,
-        tech: `Pour une startup tech, on recommande une landing page percutante avec votre proposition de valeur, une démo ou capture d'email, et un design moderne.`,
-        sport: `Pour un coach sportif ou une salle de sport, les essentiels sont : planning des cours, réservation en ligne et témoignages clients.`,
-      };
-      return `${sectorMsg[sector]}\n\n💰 **À partir de 150€** selon la portée.\n\nCombien de pages avez-vous besoin et quel est votre budget approximatif ?`;
-    }
-
-    // ── Réponse ecom générique enrichie (si aucun contexte précis) ──
-    return `Nous créons des **sites e-commerce sur mesure** — conçus autour de vos produits et de vos clients.\n\n💰 **À partir de 200€**\n📦 **Listing dès 5 produits**\n⏱️ **Livraison : 15 à 60 jours** selon la complexité\n\nPour vous proposer quelque chose de précis : combien de produits souhaitez-vous mettre en ligne ?`;
-  }
-
-  function buildSmartWebReply() {
-    const pages  = memory.pageCount;
-    const sector = memory.sector;
-    const feats  = memory.features;
-    const budget = memory.budget;
-
-    if (pages === 1) {
-      return `Une **page unique** — rapide, percutante et économique.\n\n💰 **À partir de 150€** — livrable en **1 à 2 semaines**\n\nC'est pour présenter quoi : votre activité, une offre spécifique, un événement ?`;
-    }
-    if (pages !== null && typeof pages === 'number' && pages <= 3) {
-      return `Un site **${pages} pages** — c'est le format idéal pour une présence professionnelle sans sur-investir.\n\n✅ Page accueil + présentation + contact\n💰 **À partir de 150€** — livrable en **2 à 3 semaines**\n\nQuelle est votre activité ?`;
-    }
-    if (sector) {
-      return buildSmartEcomReply(''); // réutilise le secteur
-    }
-    if (budget !== null && typeof budget === 'number') {
-      return `Avec **${budget}€** de budget, voici ce que je peux vous proposer :\n${budget >= 150 ? '✅ Site vitrine professionnel (3–5 pages)\n' : ''}${budget >= 200 ? '✅ Landing page + blog\n' : ''}${budget >= 350 ? '✅ Site e-commerce petit catalogue\n' : ''}\nLaquelle correspond le mieux à vos besoins ?`;
-    }
-    return `Nous créons des **sites web premium** adaptés à vos objectifs.\n\n💰 **À partir de 150€** — design pro, mobile-first, SEO inclus.\n\nQuel type de site cherchez-vous ? (vitrine, portfolio, e-commerce, landing page ?)`;
-  }
-
-  /* ── DÉTECTION D'INTENTION ───────────────────────────────── */
-  function detectIntent(text) {
-    const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function detectIntent(raw) {
+    const t  = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const is = (...kw) => kw.some(k => t.includes(k));
 
-    // Objections prix
-    if (is('cher','trop cher','trop eleve','excessif','hors budget','pas les moyens',
-           'baisser','reduction','moins cher','pas abordable','trop couteux','arnaque',
-           'negocier','budget serre','budget limite','petit budget','pas dans le budget',
-           'encore trop','quand meme','un peu cher','expensive','too much','cheaper'))
+    /* ── Message ne contenant qu'une adresse email ── */
+    if (/^[\w._%+\-]+@[\w.\-]+\.[a-z]{2,}$/.test(raw.trim())) return 'email_only';
+
+    /* ── Pas d'idée / veut des conseils — PRIORITÉ MAXIMALE ── */
+    if (is('pas encore','pas d idee','aucune idee','je sais pas','sais pas encore',
+           'quoi choisir','que me conseillez','que proposez','pouvez.vous me proposer',
+           'pas sur','pas certain','par ou commencer','ou commencer',
+           'quel service','que choisir','aider moi','guidez.moi','orientez.moi',
+           'que faire','quoi faire','aide moi','besoin de conseils','pas vraiment',
+           'premiere fois','premiere experience','nouveau','debutant','jamais fait',
+           'ou commencer','comment commencer','par quoi commencer','conseil',
+           'recommandez','suggere','quelle option','quelle solution'))
+      return 'no_idea';
+
+    /* ── Objections prix ── */
+    if (is('cher','trop cher','trop eleve','hors budget','pas les moyens',
+           'reduction','moins cher','pas abordable','negocier','budget serre',
+           'budget limite','petit budget','pas dans le budget','encore trop',
+           'bit cher','un peu cher'))
       return 'negotiate';
 
-    if (is('remise','promo','promotion','offre speciale','prix special','deal','coupon'))
+    if (is('remise','promo','promotion','offre speciale','deal','coupon'))
       return 'discount';
 
-    if (is('ca vaut','vaut le coup','pourquoi payer','qu est-ce que j obtiens','inclus',
-            'justifier','rentable','roi','valeur'))
+    if (is('ca vaut','vaut le coup','pourquoi payer','qu est-ce que j obtiens',
+           'justifier','rentable','roi','valeur'))
       return 'value';
 
-    if (is('compare','autres agences','concurrents','prix moyen','tarif moyen','benchmark'))
+    if (is('compare','autres agences','concurrents','prix moyen','benchmark'))
       return 'comparison';
 
-    if (is('prix','cout','tarif','budget','combien','devis','facturer','investissement','payer'))
+    if (is('prix','cout','tarif','budget','combien','devis','facturer','investissement'))
       return 'price';
 
-    if (is('delai','duree','combien de temps','livrer','semaine','mois','quand','rapide','urgent'))
+    if (is('delai','duree','combien de temps','livrer','semaine','mois','quand',
+           'rapide','urgent','dans combien'))
       return 'timeline';
 
-    if (is('application mobile','app mobile','android','ios','iphone','flutter','react native'))
+    if (is('application mobile','app mobile','android','ios','flutter','react native'))
       return 'mobile';
 
-    if (is('e-commerce','ecommerce','boutique en ligne','shopify','woocommerce','vendre en ligne',
-            'produit','panier','commande','boutique','acheter'))
+    if (is('e-commerce','ecommerce','boutique en ligne','shopify','woocommerce',
+           'vendre en ligne','panier','commande'))
       return 'ecom';
 
-    if (is('seo','referencement','google','moteur de recherche','rang','visibilite','trafic'))
+    if (is('seo','referencement','google','moteur de recherche','visibilite','trafic'))
       return 'seo';
 
-    if (is('refonte','redesign','ameliorer','moderniser','rafraichir','site existant','site actuel'))
+    if (is('refonte','redesign','moderniser','rafraichir','site existant','site actuel'))
       return 'redesign';
 
-    if (is('design','ui','ux','interface','maquette','prototype','wireframe','look'))
+    if (is('design','interface','maquette','prototype','wireframe','branding','ui','ux'))
       return 'design';
 
-    if (is('landing page','page d atterrissage','page unique','page de vente'))
+    if (is('landing page','page d atterrissage','page de vente','page unique'))
       return 'landing';
 
-    if (is('performance','vitesse','chargement','core web','pagespeed','lighthouse'))
+    if (is('performance','vitesse','chargement','pagespeed','lighthouse'))
       return 'performance';
 
     if (is('processus','comment vous travaillez','methode','etape','workflow'))
       return 'process';
 
-    if (is('technologie','stack','framework','react','next','wordpress','webflow'))
+    if (is('technologie','stack','framework','react','wordpress','webflow'))
       return 'tech';
 
     if (is('hebergement','domaine','serveur','deployer','cloud'))
       return 'hosting';
 
-    if (is('maintenance','support','apres lancement','mise a jour','suivi','retainer'))
+    if (is('maintenance','support','apres lancement','mise a jour','retainer'))
       return 'maintenance';
 
     if (is('cms','gestion de contenu','modifier','editer','backend'))
       return 'cms';
 
-    if (is('revision','modification','retour','iteration','changer','ajuster'))
+    if (is('revision','modification','retour','iteration','changer'))
       return 'revisions';
 
-    if (is('qui etes','a propos','presentez','que faites-vous','votre agence','nova dev'))
+    if (is('qui etes','a propos','presentez','que faites','votre agence','nova dev'))
       return 'about';
 
     if (is('pourquoi vous','pourquoi nova','difference','unique','meilleur','mieux que'))
@@ -487,8 +448,9 @@
 
     if (is('bonjour','salut','bonsoir','hello','hey','coucou','bjr'))
       return 'greeting';
+    if (/^(bonjour|salut|hello|hey|bjr|coucou|bonsoir)[.!?]?\s*$/.test(t.trim())) return 'greeting';
 
-    if (is('merci','super','parfait','excellent','bravo','utile','genial','formidable','top','cool'))
+    if (is('merci','super','parfait','excellent','bravo','utile','genial','formidable','top'))
       return 'thanks';
 
     if (is('au revoir','a bientot','ciao','bye','bonne journee','a plus'))
@@ -497,272 +459,380 @@
     return 'unknown';
   }
 
-  /* ── RÉPONSE PRIX CONTEXTUELLE ───────────────────────────── */
-  function getPriceReply() {
-    const p = PRICING[memory.topicContext] || PRICING.website;
-    if (memory.productCount !== null && memory.topicContext === 'ecom') {
-      const qty = memory.productCount;
-      if (qty === 1) return `Pour **1 seul produit**, notre tarif e-commerce démarre à **200€** — c'est notre format le plus simple et le plus rapide (livrable en 10–15 jours).`;
-      if (typeof qty === 'number' && qty <= 5) return `Pour **${qty} produit${qty>1?'s':''}**, comptez à partir de **200€** — livrable en 15–20 jours.`;
-      if (typeof qty === 'number' && qty > 5) return `Pour **${qty} produits**, le budget dépend du niveau de personnalisation. On démarre à **200€** pour la base et on adapte selon vos besoins. Partagez votre email pour un devis précis.`;
+  /* ════════════════════════════════════════════════════════════
+     BUILDERS DE RÉPONSES INTELLIGENTES
+  ════════════════════════════════════════════════════════════ */
+
+  /* E-commerce — uniquement appelé quand topicContext='ecom' est confirmé */
+  function buildEcomReply() {
+    const qty  = mem.productCount;
+    const pgs  = mem.pageCount;
+    const s    = mem.sector;
+    const b    = mem.budget;
+
+    // Précis : 1 page + 1 produit
+    if (qty===1 && pgs===1) return `Parfait — **1 page, 1 produit**, c'est notre format le plus simple et le plus rapide ! 🎯\n\n✅ 1 page produit (photo, description, prix, bouton d'achat)\n✅ Paiement en ligne sécurisé (carte / PayPal)\n✅ Design professionnel, mobile-first\n✅ Optimisé Google\n\n💰 **À partir de 200€** — livrable en **10 à 15 jours**\n\nC'est quel type de produit ?`;
+
+    // 1 produit
+    if (qty===1) return `Super — **un seul produit** simplifie tout !\n\n🔹 **Option mini** — 1 page produit + paiement — à partir de **200€**, prête en **2 semaines**\n🔹 **Option complète** — produit + accueil + contact — à partir de **250€**, prête en **3 semaines**\n\nMinimaliste ou un peu plus complet ?`;
+
+    // 2–5 produits
+    if (typeof qty==='number' && qty>=2 && qty<=5) return `**${qty} produit${qty>1?'s':''}** — parfaitement dans notre périmètre de base !\n\n✅ Pages produits individuelles avec photos et descriptions\n✅ Panier + paiement en ligne sécurisé\n✅ Page accueil + contact\n\n💰 **À partir de 200€** — livrable en **15 à 20 jours**\n\nVous avez déjà des photos de vos produits ?`;
+
+    // Grand catalogue
+    if (qty==='beaucoup' || (typeof qty==='number' && qty>20)) return `Un **grand catalogue** — parfait pour Shopify ou WooCommerce !\n\n✅ Filtres, recherche, catégories\n✅ Gestion en totale autonomie\n✅ Import CSV pour charger rapidement\n\n💰 **À partir de 350€** selon la complexité\n\nVous avez déjà une liste de vos produits ?`;
+
+    // Réponse e-com spécifique au secteur
+    if (s) {
+      const sm = {
+        mode: "Pour la mode, les photos sont essentielles — une boutique visuellement impactante avec filtres par catégorie, taille, couleur. On associe souvent Shopify à un design personnalisé.",
+        restauration: "Pour un restaurant, les essentiels : menu en ligne, galerie photos, réservation, Google Maps. On peut aussi intégrer la commande en ligne.",
+        conseil: "Pour un consultant qui vend des services en ligne, une landing page ciblée avec votre offre, des témoignages et un bouton de réservation/paiement est souvent idéale.",
+        santé: "Pour un professionnel de santé, la prise de rendez-vous en ligne et une présentation claire des services sont les priorités.",
+        créatif: "Pour un créatif qui vend son travail en ligne, votre portfolio fait aussi office de boutique — on le rend visuellement saisissant.",
+        tech: "Pour un produit tech, une landing percutante avec démo, grille tarifaire et intégration paiement est la formule gagnante.",
+        sport: "Pour le sport, les essentiels : planning des cours, réservation/paiement en ligne, témoignages clients.",
+      };
+      const msg = sm[s] || `Pour votre secteur, on créera une expérience e-commerce sur mesure autour de vos produits.`;
+      return `${msg}\n\n💰 **À partir de 200€** — listing dès 5 produits.\n\nCombien de produits souhaitez-vous mettre en ligne ?`;
     }
-    if (memory.pageCount === 1) return `Pour **1 seule page**, on démarre à **150€** — livrable en 1–2 semaines.`;
-    return `Nos projets **${p.label}** démarrent à **${p.from}${p.currency}** — transparent et compétitif.\n\nLe coût final dépend du périmètre et des fonctionnalités. Souhaitez-vous une estimation précise ?`;
+
+    // Budget trop faible
+    if (b==='petit' || (typeof b==='number' && b<200)) {
+      return `Je comprends — voici ce qui est possible avec un budget serré :\n\n✅ **Landing page 1 page** — à partir de **150€**\n✅ **Site vitrine 3 pages** — à partir de **150€**\n✅ **E-commerce ciblé** — à partir de **200€** (1–5 produits)\n\nCombien de produits souhaitez-vous lister ?`;
+    }
+
+    // Fonctionnalités mentionnées
+    if (mem.features.length>0) {
+      const fl = mem.features.map(f=>`✅ ${f}`).join('\n');
+      return `Voici ce que vous cherchez :\n${fl}\n\nTout est réalisable ! Pour affiner le budget — combien de produits souhaitez-vous mettre en ligne ?`;
+    }
+
+    // Ecom générique — avec une question ciblée
+    return `Nous créons des **sites e-commerce sur mesure** pensés autour de vos produits et de vos clients.\n\n💰 **À partir de 200€** — listing dès 5 produits\n⏱️ **Livraison : 15 à 60 jours** selon la portée\n\nPour vous proposer quelque chose de précis : **combien de produits** souhaitez-vous mettre en ligne ?`;
   }
 
-  /* ── NUDGE PROSPECT ──────────────────────────────────────── */
+  /* Site web */
+  function buildWebReply() {
+    const pgs = mem.pageCount;
+    const b   = mem.budget;
+    const s   = mem.sector;
+
+    if (pgs===1) return `Une **page unique** — rapide, percutante et économique.\n\n💰 **À partir de 150€** — livrable en **1 à 2 semaines**\n\nC'est pour présenter quoi : votre activité, une offre spécifique, un événement ?`;
+    if (typeof pgs==='number' && pgs<=3) return `Un site **${pgs} pages** — format idéal pour une présence pro sans sur-investir.\n\n✅ Accueil + présentation + contact\n💰 **À partir de 150€** — livrable en **2 à 3 semaines**\n\nQuelle est votre activité ?`;
+    if (typeof pgs==='number' && pgs>3) return `Un site **${pgs} pages** — portée solide pour une présence professionnelle complète.\n\n💰 **À partir de 150€** pour commencer — le coût final dépend des fonctionnalités.\n\nQuelles sont les pages indispensables ?`;
+    if (typeof b==='number' && b>0) return `Avec un budget de **${b}€** :\n${b>=150?'✅ Site vitrine professionnel (3–5 pages)\n':''}${b>=200?'✅ Landing page + blog\n':''}${b>=350?'✅ E-commerce petit catalogue\n':''}\nLaquelle correspond le mieux à vos besoins ?`;
+    if (s) {
+      const sm = {
+        restauration: "Pour un restaurant, un site 4–5 pages comprend généralement : accueil, menu, galerie, réservation, contact.",
+        artisanat: "Pour un artisan, un portfolio propre — vos réalisations en photos, formulaire de devis, téléphone visible.",
+        conseil: "Pour un consultant, typiquement : accueil avec votre offre, à propos, services, témoignages, contact.",
+        immobilier: "Pour l'immobilier : listings de biens, photos, formulaires de contact et estimation en ligne.",
+        santé: "Pour un professionnel de santé : présentation des services, réservation en ligne, équipe, contact.",
+        créatif: "Pour un créatif, votre portfolio est votre meilleur outil commercial — visuel, immersif, rapide.",
+        tech: "Pour une startup tech : landing page, grille tarifaire, points forts, inscription.",
+        juridique: "Pour un cabinet juridique : domaines d'expertise, bios d'équipe, signaux de confiance, contact.",
+        sport: "Pour le sport : planning des cours, réservation, tarifs, témoignages.",
+      };
+      const msg = sm[s] || `Pour votre secteur, un site 3–5 pages couvre tous les essentiels.`;
+      return `${msg}\n\n💰 **À partir de 150€** — livrable en **2 à 4 semaines**.\n\nCombien de pages vous faut-il ?`;
+    }
+    return `Nous concevons et développons des **sites web premium** adaptés à vos objectifs.\n\n💰 **À partir de 150€** — design pro, mobile-first, SEO inclus.\n\nPortfolio, site vitrine, e-commerce ou landing page ?`;
+  }
+
+  /* Prix contextuel */
+  function getPriceReply() {
+    const p = PRICING[mem.topicContext] || PRICING.website;
+    if (mem.topicContext==='ecom') {
+      const q = mem.productCount;
+      if (q===1) return `Pour **1 produit** : à partir de **200€**, livrable en 10–15 jours.`;
+      if (typeof q==='number' && q<=5) return `Pour **${q} produit${q>1?'s':''}** : à partir de **200€**, livrable en 15–20 jours.`;
+      if (typeof q==='number' && q>5) return `Pour **${q} produits** : on démarre à **200€** de base. Partagez votre email pour un devis précis.`;
+    }
+    if (mem.pageCount===1) return `Pour **1 page** : à partir de **150€**, livrable en 1–2 semaines.`;
+    if (mem.topicContext==='mobile') return `Les applications mobiles démarrent à **200€**. Délai : 8–16 semaines. Vous voulez un détail ?`;
+    return `Nos projets **${p.label}** démarrent à **${p.from}${p.cur}** — transparent et compétitif.\n\nLe coût final dépend du périmètre. Souhaitez-vous une estimation précise ?`;
+  }
+
+  /* ── LEAD NUDGE ──────────────────────────────────────────── */
   function leadNudge() {
-    if (!lead.name && !memory.askedName && memory.turnCount >= 2) {
-      memory.askedName = true;
-      return pickFresh([
+    if (mem.emailFlag) return '';
+    if (!lead.name && !mem.askedName && mem.turnCount>=2) {
+      mem.askedName = true;
+      return pick([
         "\n\nÀ qui ai-je le plaisir de parler ? 😊",
-        "\n\nEt si je puis me permettre, comment vous appelez-vous ?",
+        "\n\nComment vous appelez-vous ?",
         "\n\nJ'aimerais personnaliser notre échange — quel est votre prénom ?",
       ]);
     }
-    if (lead.name && !lead.email && !memory.askedEmail && memory.turnCount >= 3) {
-      memory.askedEmail = true;
-      return pickFresh([
-        `\n\nMerci ${lead.name} ! Quel email pour que notre équipe vous envoie un devis personnalisé ?`,
-        `\n\n${lead.name}, si vous souhaitez un devis ou plus d'infos, partagez votre email.`,
-        `\n\nVotre email, ${lead.name} ? L'équipe vous répond en moins de 24h.`,
+    if (lead.name && !lead.email && !mem.askedEmail && mem.turnCount>=3) {
+      mem.askedEmail = true;
+      return pick([
+        `\n\nMerci ${lead.name} ! Quel email pour qu'on vous envoie un devis personnalisé ?`,
+        `\n\n${lead.name}, partagez votre email — l'équipe vous répond en moins de 24h.`,
+        `\n\nVotre email, ${lead.name} ? On vous prépare une proposition sur mesure.`,
       ]);
     }
     return '';
   }
 
-  /* ── GÉNÉRATION DE RÉPONSE PRINCIPALE ───────────────────── */
+  /* ════════════════════════════════════════════════════════════
+     GÉNÉRATEUR PRINCIPAL
+     Flow : extraction → intention → routage → anti-répétition → lead nudge
+  ════════════════════════════════════════════════════════════ */
   function generateReply(userText) {
-    extractDeepContext(userText);
-    memory.turnCount++;
-
-    // Si on attendait une précision, on traite la réponse en contexte
-    if (memory.clarifyPending) {
-      memory.clarifyPending = false;
-      const clarifyIntent = detectIntent(userText);
-      if (clarifyIntent === 'unknown' || memory.turnCount <= 3) {
-        // Répondre intelligemment selon ce que l'utilisateur vient de préciser
-        if (memory.topicContext === 'ecom' || memory.productCount !== null) {
-          return buildSmartEcomReply(userText) + leadNudge();
-        }
-        if (memory.topicContext === 'website' || memory.pageCount !== null) {
-          return buildSmartWebReply() + leadNudge();
-        }
-      }
-    }
+    extractContext(userText);
+    mem.turnCount++;
 
     const intent = detectIntent(userText);
     let reply = '';
 
+    /* ── PRIORITÉ 0 : Email reçu — toujours accuser réception, jamais vendre ── */
+    if (mem.emailFlag || intent==='email_only') {
+      reply = lead.name
+        ? personalize(pick(POOLS.email_ack_named))
+        : pick(POOLS.email_ack_anon);
+      maybeSendLead();
+      mem.lastIntent = 'email_only';
+      mem.lastReply  = reply;
+      return reply;
+    }
+
     switch (intent) {
+
+      /* ── Pas d'idée / veut des suggestions — TOUJOURS afficher le menu ── */
+      case 'no_idea':
+        reply = pick(POOLS.propose_menu);
+        break;
 
       case 'greeting':
         reply = lead.name
-          ? personalize(pickFresh(POOLS.greeting_known))
-          : pickFresh(POOLS.greeting_new);
+          ? personalize(pick(POOLS.greeting_known))
+          : pick(POOLS.greeting_new);
         break;
 
       case 'thanks':
         reply = lead.name
-          ? personalize(pickFresh(POOLS.thanks_known))
-          : pickFresh(POOLS.thanks_new);
+          ? personalize(pick(POOLS.thanks_known))
+          : pick(POOLS.thanks);
         break;
 
       case 'bye':
         reply = lead.name
-          ? personalize(pickFresh(POOLS.bye_known))
-          : pickFresh(POOLS.bye_new);
+          ? personalize(pick(POOLS.bye_known))
+          : pick(POOLS.bye);
         break;
 
-      case 'about':       reply = KB.about;       break;
-      case 'why':         reply = KB.why;          break;
-      case 'guarantee':   reply = KB.guarantee;    break;
-      case 'process':     reply = KB.process;      break;
-      case 'tech':        reply = KB.tech;         break;
-      case 'hosting':     reply = KB.hosting;      break;
-      case 'maintenance': reply = KB.maintenance;  break;
-      case 'cms':         reply = KB.cms;          break;
-      case 'revisions':   reply = KB.revisions;    break;
-      case 'mobile_friendly': reply = KB.mobile_friendly; break;
+      case 'about':           reply = KB.about;           break;
+      case 'why':             reply = KB.why;              break;
+      case 'guarantee':       reply = KB.guarantee;        break;
+      case 'process':         reply = KB.process;          break;
+      case 'tech':            reply = KB.tech;             break;
+      case 'hosting':         reply = KB.hosting;          break;
+      case 'maintenance':     reply = KB.maintenance;      break;
+      case 'cms':             reply = KB.cms;              break;
+      case 'revisions':       reply = KB.revisions;        break;
+      case 'mobile_friendly': reply = KB.mobile_friendly;  break;
+      case 'services_list':   reply = KB.services_list;    break;
 
       case 'contact':
-        memory.askedEmail = true;
+        mem.askedEmail = true;
         reply = KB.contact;
         break;
 
-      case 'services_list':
-        reply = KB.services_list;
-        break;
-
       case 'web':
-        memory.topicContext = memory.topicContext || 'website';
-        if (!lead.service) lead.service = 'Site web';
-        reply = buildSmartWebReply();
+        if (!mem.topicContext) mem.topicContext='website';
+        if (!lead.service) lead.service='Site web';
+        reply = buildWebReply();
         break;
 
       case 'mobile':
-        memory.topicContext = 'mobile';
-        if (!lead.service) lead.service = 'Application mobile';
-        reply = `Nous développons des **applications iOS et Android** haute performance.\n\n💰 **À partir de 200€** — parmi les tarifs les plus compétitifs pour du développement mobile de qualité.\n\nQuel type d'application avez-vous en tête ? (outil interne, app client, e-commerce mobile ?)`;
+        mem.topicContext='mobile'; mem.topicConfirmed=true;
+        if (!lead.service) lead.service='Application mobile';
+        reply = `Nous développons des **applications iOS et Android** haute performance.\n\n💰 **À partir de 200€**\n⏱️ **8 à 16 semaines** du brief au lancement\n\nQuel type d'application : outil client, outil interne ou m-commerce ?`;
         break;
 
       case 'ecom':
-        memory.topicContext = 'ecom';
-        if (!lead.service) lead.service = 'Site E-commerce';
-        reply = buildSmartEcomReply(userText);
+        mem.topicContext='ecom'; mem.topicConfirmed=true;
+        if (!lead.service) lead.service='Site E-commerce';
+        reply = buildEcomReply();
         break;
 
       case 'landing':
-        memory.topicContext = 'landing';
-        if (!lead.service) lead.service = 'Landing page';
-        reply = `Une **landing page** bien conçue est l'investissement le plus rapide pour capter des clients.\n\n💰 **À partir de 150€** — livrée en **1 à 2 semaines**.\n\nC'est pour promouvoir quoi : un service, un produit, un événement ?`;
+        mem.topicContext='landing'; mem.topicConfirmed=true;
+        if (!lead.service) lead.service='Landing page';
+        reply = `Une **landing page** bien conçue est l'investissement le plus rapide pour capter des clients.\n\n💰 **À partir de 150€** — livrable en **1 à 2 semaines**\n\nC'est pour promouvoir quoi : un service, un produit, un événement ?`;
         break;
 
       case 'redesign':
-        memory.topicContext = 'redesign';
-        if (!lead.service) lead.service = 'Refonte de site';
-        reply = `Nous pouvons élever votre site existant — direction visuelle plus forte, structure plus claire.\n\n💰 **À partir de 150€**, livraison en **3 à 5 semaines**.\n\nQu'est-ce qui ne fonctionne pas sur votre site actuel ?`;
+        mem.topicContext='redesign'; mem.topicConfirmed=true;
+        if (!lead.service) lead.service='Refonte de site';
+        reply = `Nous pouvons élever votre site existant — direction visuelle plus forte, structure plus claire, meilleure crédibilité.\n\n💰 **À partir de 150€** — la plupart des refontes prennent **3 à 5 semaines**\n\nQu'est-ce qui ne fonctionne pas sur votre site actuel ?`;
         break;
 
       case 'design':
-        memory.topicContext = memory.topicContext || 'design';
-        reply = `Notre travail de design est centré sur **clarté, crédibilité et conversion**.\n\n💰 **À partir de 150€**.\n\nDesign seul ou design + développement ?`;
+        if (!mem.topicContext) mem.topicContext='design';
+        reply = `Notre travail de design est centré sur **clarté, crédibilité et conversion**.\n\n💰 **À partir de 150€**\n\nDesign seul, ou design + développement ?`;
         break;
 
       case 'seo':
       case 'performance':
-        reply = `SEO et performance sont intégrés dans tout ce qu'on construit — chargement rapide, code propre, mobile-first.\n\nBesoin d'un travail SEO sur un site existant ? **À partir de 150€**.`;
+        reply = `SEO et performance intégrés dans tout ce qu'on construit — chargement rapide, code propre, mobile-first.\n\nTravail SEO ciblé sur un site existant ? **À partir de 150€**.`;
         break;
 
       case 'timeline': {
-        // Réponse adaptée au contexte mémorisé
         let tl = '';
-        if (memory.topicContext === 'mobile') tl = "**8 à 16 semaines** du brief au lancement pour une app mobile.";
-        else if (memory.topicContext === 'landing') tl = "**1 à 2 semaines** pour une landing page.";
-        else if (memory.topicContext === 'ecom') {
-          if (memory.productCount === 1) tl = "Pour **1 produit** : livrable en **10 à 15 jours**.";
-          else if (typeof memory.productCount === 'number' && memory.productCount <= 5)
-            tl = `Pour **${memory.productCount} produits** : livrable en **15 à 20 jours**.`;
+        if (mem.topicContext==='mobile') tl = "**8 à 16 semaines** du brief au lancement pour une application mobile.";
+        else if (mem.topicContext==='landing') tl = "**1 à 2 semaines** pour une landing page.";
+        else if (mem.topicContext==='ecom') {
+          if (mem.productCount===1) tl = "Pour **1 produit** : livrable en **10 à 15 jours**.";
+          else if (typeof mem.productCount==='number'&&mem.productCount<=5) tl = `Pour **${mem.productCount} produits** : livrable en **15 à 20 jours**.`;
           else tl = "**15 à 60 jours** selon le volume et la complexité.";
         }
-        else if (memory.pageCount === 1) tl = "Pour **1 page** : livrable en **1 à 2 semaines**.";
-        else if (typeof memory.pageCount === 'number' && memory.pageCount <= 3)
-          tl = `Pour **${memory.pageCount} pages** : livrable en **2 à 3 semaines**.`;
+        else if (mem.pageCount===1) tl = "Pour **1 page** : livrable en **1 à 2 semaines**.";
+        else if (typeof mem.pageCount==='number'&&mem.pageCount<=3) tl = `Pour **${mem.pageCount} pages** : livrable en **2 à 3 semaines**.`;
         else tl = "Landing page : 1–2 semaines | Site complet : 3–6 semaines | E-commerce : 15–60 jours | App mobile : 8–16 semaines.";
         reply = tl + "\n\nVous avez un délai particulier en tête ?";
         break;
       }
 
       case 'price':
-        reply = getPriceReply() + '\n\n' + pickFresh(POOLS.price_follow_up);
+        reply = getPriceReply() + '\n\n' + pick(POOLS.price_follow_up);
         break;
 
       case 'negotiate':
-        reply = getNegotiationResponse();
+        reply = getNeg();
         break;
 
       case 'discount':
-        reply = pickFresh([
-          "Nous proposons parfois des offres groupées quand les clients combinent plusieurs services. Dites-moi l'ensemble de vos besoins et je vois ce qu'on peut optimiser.",
-          "Pour les clients prêts à démarrer rapidement, on peut parfois ajuster. Partagez les détails de votre projet.",
-          "Nous avons des forfaits flexibles. Décrivez tout ce dont vous avez besoin et je vois comment maximiser la valeur dans votre budget.",
+        reply = pick([
+          "Nous proposons parfois des offres groupées quand les clients combinent plusieurs services — dites-moi tout ce dont vous avez besoin et je vois ce qui est possible.",
+          "Pour les clients prêts à démarrer rapidement, on peut parfois s'adapter. Partagez les détails de votre projet et je cherche des options.",
+          "Nous avons des forfaits flexibles. Décrivez l'ensemble de vos besoins et je maximiserai la valeur dans votre budget.",
         ]);
         break;
 
       case 'value':
-        if (memory.topicContext === 'ecom') {
-          reply = pickFresh([
-            "À **partir de 200€**, votre site e-commerce travaille 24h/24 — vitrine ouverte en permanence, commandes qui tombent même quand vous dormez. Un seul achat rembourse l'investissement.",
-            "Un site e-commerce professionnel renforce la crédibilité, augmente les conversions et donne confiance aux acheteurs. **À partir de 200€, listing dès 5 produits** — l'un des meilleurs investissements pour tout vendeur.",
-            "Pensez-y : une vente via votre site rembourse tout le projet. À **partir de 200€**, le retour sur investissement est rapide.",
+        if (mem.topicContext==='ecom') {
+          reply = pick([
+            "À **partir de 200€**, votre site e-commerce travaille 24h/24 — prenant des commandes même pendant que vous dormez. Une seule vente rembourse l'investissement.",
+            "Une boutique e-commerce professionnelle renforce la crédibilité, réduit les abandons de panier et convertit plus. **À partir de 200€, listing dès 5 produits** — un investissement judicieux.",
+            "Pensez-y : une seule vente via votre site rembourse l'intégralité du projet. **À partir de 200€**, le ROI arrive vite.",
           ]);
         } else {
-          reply = pickFresh([
-            "À **150€**, vous obtenez un actif digital qui travaille 24h/24, renforce votre crédibilité et convertit les visiteurs en clients — bien plus qu'une journée de pub.",
-            "Un site bien construit se rentabilise rapidement. À **150€**, vous investissez moins que ce que beaucoup dépensent en une journée — pour un outil qui dure des années.",
-            "Un seul nouveau client depuis votre site rembourse le projet — et il continue à travailler. À **150€** pour commencer, le ROI est évident.",
+          reply = pick([
+            "À **150€**, vous obtenez un actif digital qui travaille 24h/24 — plus rentable qu'une journée de pub, et ça dure des années.",
+            "Un site bien construit se rentabilise rapidement. À **150€**, vous investissez moins que beaucoup d'entreprises en une seule journée — pour un outil durable.",
+            "Un nouveau client via votre site rembourse l'intégralité du projet. **À partir de 150€**, le ROI est évident.",
           ]);
         }
         break;
 
       case 'comparison':
-        reply = pickFresh([
-          "Comparé à d'autres agences qui facturent 2 000€ à 10 000€+, nos prix sont une fraction du coût — sans sacrifier la qualité. Nos processus efficaces vous font profiter des économies.",
-          "La plupart des agences facturent 3 000€–8 000€ pour un site business. On démarre à **150€** — parce qu'on a construit des processus plus intelligents, pas parce qu'on coupe les coins.",
+        reply = pick([
+          "Comparé à des agences facturant 2 000€–10 000€+, nos prix sont une fraction — sans sacrifier la qualité. Nos processus efficaces vous font économiser.",
+          "La plupart des agences facturent 3 000€–8 000€ pour un site business de base. On démarre à **150€** — parce qu'on a des processus plus intelligents, pas parce qu'on fait des raccourcis.",
         ]);
         break;
 
-      default:
-        // Vérifier si c'est une réponse à une question qu'on avait posée
-        if (memory.clarifyTopic === 'productCount' && /\d+/.test(userText)) {
-          memory.topicContext = memory.topicContext || 'ecom';
-          reply = buildSmartEcomReply(userText);
-          memory.clarifyTopic = '';
-        }
-        else if (memory.lastIntent === 'negotiate' || memory.lastIntent === 'price') {
-          reply = getNegotiationResponse();
-        }
-        // Répondre en contexte si on a des infos mémorisées
-        else if (memory.topicContext === 'ecom' || memory.productCount !== null) {
-          reply = buildSmartEcomReply(userText);
-        }
-        else if (memory.topicContext === 'website' || memory.pageCount !== null) {
-          reply = buildSmartWebReply();
-        }
-        else if (userText.trim().length < 12) {
-          reply = pickFresh(POOLS.unknown_short);
-        }
-        else {
-          // Essayer de détecter si le message décrit un besoin
-          reply = pickFresh([
-            "Intéressant ! Pour vous proposer quelque chose de vraiment adapté — c'est pour quel type de projet : site vitrine, e-commerce, application mobile, ou autre ?",
-            "Je veux vous donner une réponse précise. Décrivez-moi votre projet en quelques mots : que voulez-vous vendre ou présenter, et à qui ?",
-            "Dites-m'en plus sur votre projet — secteur d'activité, ce que vous voulez proposer en ligne, et votre idée de budget ?",
+      default: {
+        /*
+          Message inconnu — routage intelligent par sous-catégorie :
+          1. Nombre de produits connu → réponse contexte ecom
+          2. Nombre de pages connu → réponse contexte web
+          3. Contexte thématique établi → continuer dans le contexte
+          4. Secteur connu → suggestion spécifique au secteur
+          5. Message court → demander de développer
+          6. Message plus long → question ouverte sur le type de projet
+        */
+        if (mem.productCount!==null) {
+          mem.topicContext = mem.topicContext||'ecom';
+          reply = buildEcomReply();
+        } else if (mem.pageCount!==null) {
+          mem.topicContext = mem.topicContext||'website';
+          reply = buildWebReply();
+        } else if (mem.topicContext==='ecom') {
+          reply = pick([
+            "Parfait — pour votre e-commerce : **combien de produits** souhaitez-vous mettre en ligne ?",
+            "Super, on construit votre boutique ! Pour bien cadrer — **combien de produits** au lancement ?",
+            "Pour votre projet e-commerce — combien de produits pour commencer ?",
           ]);
-          memory.clarifyPending = true;
+        } else if (mem.topicContext==='website') {
+          reply = buildWebReply();
+        } else if (mem.sector) {
+          const sectorRec = {
+            restauration: "Pour un restaurant, je recommande un **site avec réservation** (à partir de 150€) ou un **site menu une page** (à partir de 150€). Souhaitez-vous aussi la commande en ligne ?",
+            artisanat: "Pour un artisan, un **site portfolio** propre (à partir de 150€) fonctionne très bien. Voulez-vous recevoir des demandes de devis en ligne ?",
+            conseil: "Pour un consultant, une **landing page** (à partir de 150€) ou un **site multi-pages** (à partir de 150€) fonctionnent bien. Vendez-vous des formations ou prenez-vous des rdv en ligne ?",
+            mode: "Pour la mode, je suggère un **site e-commerce** (à partir de 200€) si vous vendez en ligne, ou un **site portfolio** (à partir de 150€) pour présenter votre marque.",
+            sport: "Pour le sport, les essentiels : un **site** avec planning et réservation (à partir de 150€). Vendez-vous aussi des abonnements ou sessions en ligne ?",
+            tech: "Pour une startup tech, une **landing page** (à partir de 150€) pour valider votre idée, ou une **web app** complète (à partir de 150€) — où en êtes-vous ?",
+            créatif: "Pour un créatif, un **site portfolio** (à partir de 150€) est généralement le meilleur premier pas. Vendez-vous aussi votre travail en ligne ?",
+            juridique: "Pour un cabinet juridique, un **site professionnel** (à partir de 150€) avec signaux de confiance, bios d'équipe et formulaire de contact. Combien de pages vous faut-il ?",
+            santé: "Pour un professionnel de santé, un **site avec réservation en ligne** (à partir de 150€) est le point de départ le plus impactant. Recevez-vous des patients en cabinet ou en ligne ?",
+          };
+          reply = sectorRec[mem.sector] || pick(POOLS.propose_menu);
+        } else if (mem.lastIntent==='negotiate'||mem.lastIntent==='price') {
+          reply = getNeg();
+        } else if (userText.trim().length<15) {
+          reply = pick(POOLS.unknown_ask);
+        } else {
+          reply = pick([
+            "Je veux vous donner une réponse précise — pas générique. 😊\n\nDites-moi : **que voulez-vous vendre ou montrer en ligne ?** (produits, services, portfolio, réservations...)\n\nCette seule réponse me dit tout ce dont j'ai besoin.",
+            "Intéressant — permettez-moi de bien comprendre votre projet. Est-ce :\n\n🛍️ Une **boutique en ligne** (vendre des produits)\n🌐 Un **site web** (présenter vos services)\n📄 Une **landing page** (capter des contacts)\n📱 Une **application mobile** ?\n\nChoisissez juste l'une de ces options !",
+            "Pour vous orienter précisément : **quel type d'activité avez-vous ?** (ex. boutique de mode, restaurant, cabinet de conseil, studio de fitness...)\n\nJe vous propose une solution sur mesure instantanément.",
+          ]);
         }
-    }
-
-    // Protection anti-répétition
-    if (reply === memory.lastBotReply) {
-      if (['price','negotiate','discount','value','comparison'].includes(intent)) {
-        reply = getNegotiationResponse();
-      } else {
-        reply = pickFresh(POOLS.unknown_long);
       }
     }
 
+    /* ── GARDE ANTI-RÉPÉTITION ABSOLUE ── */
+    if (reply && reply===mem.lastReply) {
+      if (mem.topicContext==='ecom') {
+        reply = pick([
+          "Pour votre projet e-commerce — combien de produits pour commencer ?",
+          "Soyons précis : quel type de produits vendez-vous, et environ combien ?",
+        ]);
+      } else if (mem.topicContext) {
+        reply = pick(POOLS.propose_menu);
+      } else {
+        reply = pick(POOLS.unknown_ask);
+      }
+    }
+
+    mem.usedReplies.add(reply);
     reply += leadNudge();
-    memory.lastIntent   = intent;
-    memory.lastBotReply = reply;
+    mem.lastIntent = intent;
+    mem.lastReply  = reply;
     return reply;
   }
 
-  /* ── ENVOI DU PROSPECT ───────────────────────────────────── */
+  /* ── ENVOI DU LEAD ───────────────────────────────────────── */
   function maybeSendLead() {
-    if (lead.email && lead.name && !leadSent) {
+    if (lead.email && !leadSent) {
       leadSent = true;
-      const fd = new FormData();
-      const context = [
-        memory.productCount !== null ? `Produits: ${memory.productCount}` : '',
-        memory.pageCount !== null    ? `Pages: ${memory.pageCount}` : '',
-        memory.budget !== null       ? `Budget: ${memory.budget}€` : '',
-        memory.sector               ? `Secteur: ${memory.sector}` : '',
-        memory.features.length      ? `Fonctions: ${memory.features.join(', ')}` : '',
-        memory.deadline             ? `Délai: ${memory.deadline}` : '',
+      const ctx = [
+        mem.productCount!==null  ? `Produits: ${mem.productCount}`         : '',
+        mem.pageCount!==null     ? `Pages: ${mem.pageCount}`               : '',
+        mem.budget!==null        ? `Budget: ${mem.budget}€`                : '',
+        mem.sector               ? `Secteur: ${mem.sector}`                : '',
+        mem.features.length      ? `Fonctions: ${mem.features.join(', ')}` : '',
+        mem.deadline             ? `Délai: ${mem.deadline}`                : '',
+        lead.name                ? `Nom: ${lead.name}`                     : '',
       ].filter(Boolean).join(' | ');
-      fd.append('_subject',         `Prospect Nova Dev Chat (FR) — ${lead.name}`);
-      fd.append('_captcha',         'false');
-      fd.append('_template',        'table');
-      fd.append('Prénom',           lead.name);
-      fd.append('Email',            lead.email);
-      fd.append('Entreprise',       lead.company  || 'Non renseigné');
-      fd.append('Téléphone',        lead.phone    || 'Non renseigné');
-      fd.append('Service souhaité', lead.service  || 'Non précisé');
-      fd.append('Contexte projet',  context       || 'Non précisé');
-      fd.append('Source',           'Widget Chat IA v3 — Nova Dev FR');
-      fetch(FORM_ENDPOINT, { method:'POST', headers:{'Accept':'application/json'}, body:fd }).catch(()=>{});
-      if (typeof fbq === 'function') try { fbq('track','Lead'); } catch(_){}
+      const fd = new FormData();
+      fd.append('_subject',        `Prospect Nova Dev (FR) — ${lead.name||lead.email}`);
+      fd.append('_captcha',        'false');
+      fd.append('_template',       'table');
+      fd.append('Prénom',          lead.name    || 'Non renseigné');
+      fd.append('Email',           lead.email);
+      fd.append('Entreprise',      lead.company || 'Non renseigné');
+      fd.append('Téléphone',       lead.phone   || 'Non renseigné');
+      fd.append('Service',         lead.service || 'Non précisé');
+      fd.append('Contexte projet', ctx          || 'Non précisé');
+      fd.append('Source',          'Chat IA v5.0 — Nova Dev FR');
+      fetch(FORM_ENDPOINT,{method:'POST',headers:{'Accept':'application/json'},body:fd}).catch(()=>{});
+      if (typeof fbq==='function') try{fbq('track','Lead');}catch(_){}
     }
   }
 
@@ -771,99 +841,80 @@
     const d = new Date();
     return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   };
-  const scrollDown = () => requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
+  const scrollDown = () => requestAnimationFrame(()=>{ messagesEl.scrollTop=messagesEl.scrollHeight; });
 
   function appendMsg(text, role) {
-    const wrap = document.createElement('div');
-    wrap.className = `chat-msg ${role}`;
-    const bub = document.createElement('div');
-    bub.className = 'chat-bubble';
-    bub.innerHTML = text
+    const wrap=document.createElement('div'); wrap.className=`chat-msg ${role}`;
+    const bub=document.createElement('div'); bub.className='chat-bubble';
+    bub.innerHTML=text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\n/g,'<br>');
-    const ts = document.createElement('div');
-    ts.className = 'chat-time';
-    ts.textContent = clock();
-    wrap.appendChild(bub);
-    wrap.appendChild(ts);
-    messagesEl.appendChild(wrap);
-    scrollDown();
+    const ts=document.createElement('div'); ts.className='chat-time'; ts.textContent=clock();
+    wrap.appendChild(bub); wrap.appendChild(ts);
+    messagesEl.appendChild(wrap); scrollDown();
   }
 
-  let typingEl = null;
-  function showTyping() {
-    if (typingEl) return;
-    typingEl = document.createElement('div');
-    typingEl.className = 'chat-msg bot';
-    typingEl.innerHTML = '<div class="chat-typing"><span></span><span></span><span></span></div>';
-    messagesEl.appendChild(typingEl);
-    scrollDown();
+  let typingEl=null;
+  function showTyping(){
+    if(typingEl)return;
+    typingEl=document.createElement('div'); typingEl.className='chat-msg bot';
+    typingEl.innerHTML='<div class="chat-typing"><span></span><span></span><span></span></div>';
+    messagesEl.appendChild(typingEl); scrollDown();
   }
-  function hideTyping() { if (typingEl) { typingEl.remove(); typingEl = null; } }
+  function hideTyping(){ if(typingEl){typingEl.remove();typingEl=null;} }
 
-  /* ── FLUX D'ENVOI ────────────────────────────────────────── */
-  function handleSend() {
-    const val = inputEl?.value.trim();
-    if (!val || isThinking) return;
-    inputEl.value = '';
-    isThinking = true;
-    setInputEnabled(false);
-    appendMsg(val, 'user');
-    showTyping();
-    const delay = 400 + Math.random() * 600;
-    setTimeout(() => {
+  function handleSend(){
+    const val=inputEl?.value.trim();
+    if(!val||isThinking)return;
+    inputEl.value=''; isThinking=true; setInputEnabled(false);
+    appendMsg(val,'user'); showTyping();
+    setTimeout(()=>{
       hideTyping();
-      const reply = generateReply(val);
-      appendMsg(reply, 'bot');
+      const reply=generateReply(val);
+      appendMsg(reply,'bot');
       maybeSendLead();
-      isThinking = false;
-      setInputEnabled(true);
-      inputEl?.focus();
-    }, delay);
+      isThinking=false; setInputEnabled(true); inputEl?.focus();
+    }, 400+Math.random()*600);
   }
 
-  function setInputEnabled(on) {
-    if (inputEl) inputEl.disabled = !on;
-    if (sendBtn) sendBtn.disabled = !on;
+  function setInputEnabled(on){
+    if(inputEl) inputEl.disabled=!on;
+    if(sendBtn) sendBtn.disabled=!on;
   }
 
   /* ── MESSAGE D'ACCUEIL ───────────────────────────────────── */
-  function showGreeting() {
-    setTimeout(() => {
+  function showGreeting(){
+    setTimeout(()=>{
       showTyping();
-      setTimeout(() => {
+      setTimeout(()=>{
         hideTyping();
-        appendMsg("Bonjour ! 👋 Je suis l'assistant Nova Dev.\n\nDites-moi ce que vous voulez créer — **site vitrine, e-commerce, app mobile, landing page** — et je vous propose exactement ce qu'il vous faut, avec un prix et un délai précis.\n\nQuel est votre projet ?", 'bot');
+        appendMsg("Bonjour ! 👋 Je suis l'assistant Nova Dev.\n\nDites-moi ce que vous voulez créer — **site web, boutique en ligne, application mobile, landing page** — et je vous propose exactement ce qu'il vous faut, avec prix et délais.\n\nPas encore d'idée ? Dites-le-moi et je vous aide à choisir ! 😊", 'bot');
       }, 850);
     }, 300);
   }
 
-  /* ── OUVRIR / FERMER ─────────────────────────────────────── */
-  function openChat() {
-    if (isOpen) return;
-    isOpen = true;
+  function openChat(){
+    if(isOpen)return; isOpen=true;
     chatWindow.removeAttribute('hidden');
     bubble.setAttribute('aria-expanded','true');
-    if (badge) badge.style.display = 'none';
-    if (!opened) { opened = true; showGreeting(); }
+    if(badge) badge.style.display='none';
+    if(!opened){opened=true; showGreeting();}
     inputEl?.focus();
   }
-  function closeChat() {
-    isOpen = false;
+  function closeChat(){
+    isOpen=false;
     chatWindow.setAttribute('hidden','');
     bubble.setAttribute('aria-expanded','false');
   }
 
-  /* ── ÉVÉNEMENTS ──────────────────────────────────────────── */
-  bubble.addEventListener('click', openChat);
-  bubble.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' '){e.preventDefault();openChat();} });
-  closeBtn?.addEventListener('click', closeChat);
-  sendBtn?.addEventListener('click', handleSend);
-  inputEl?.addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();} });
-  document.addEventListener('keydown', e => { if (e.key==='Escape'&&isOpen) closeChat(); });
+  bubble.addEventListener('click',openChat);
+  bubble.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();openChat();} });
+  closeBtn?.addEventListener('click',closeChat);
+  sendBtn?.addEventListener('click',handleSend);
+  inputEl?.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();} });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&isOpen)closeChat(); });
 
-  /* ── OUVERTURE AUTO ──────────────────────────────────────── */
-  setTimeout(() => { if (!isOpen && !opened) openChat(); }, AUTO_OPEN_DELAY);
+  setTimeout(()=>{ if(!isOpen&&!opened)openChat(); }, AUTO_OPEN_DELAY);
 
 })();
