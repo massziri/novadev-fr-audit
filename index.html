@@ -229,9 +229,11 @@
     #exit-box .exit-yes { background:#d97706; color:#fff; }
     #exit-box .exit-no { background:#f1f5f9; color:#475569; }
     #exit-close { position:absolute; top:14px; right:16px; background:none; border:none; font-size:1.4rem; cursor:pointer; color:#94a3b8; }
-    #wa-float { position:fixed; bottom:100px; right:24px; z-index:8000; background:#25D366; color:#fff; border-radius:50%; width:52px; height:52px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(37,211,102,.5); text-decoration:none; animation:pulse 2s infinite; }
+    #wa-float { position:fixed; bottom:100px; right:98px; z-index:8000; background:#25D366; color:#fff; border-radius:50%; width:52px; height:52px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(37,211,102,.5); text-decoration:none; animation:pulse 2s infinite; }
     @keyframes pulse { 0%,100%{box-shadow:0 4px 16px rgba(37,211,102,.5)} 50%{box-shadow:0 4px 28px rgba(37,211,102,.8)} }
     #wa-float svg { width:26px; height:26px; }
+    /* Masquer l'ancien chat statique — remplacé par chat.js */
+    #ai-chat-bubble, #ai-chat-window { display:none !important; }
     .lead-strip { background:linear-gradient(135deg,#1c1209 0%,#2d1f0a 60%,#78350f 100%); color:#fff; padding:56px 20px; text-align:center; }
     .lead-strip h2 { font-size:1.7rem; font-weight:800; margin:0 0 10px; }
     .lead-strip p { color:#fde68a; margin:0 0 26px; max-width:520px; margin-left:auto; margin-right:auto; }
@@ -253,6 +255,11 @@
     #lead-popup button.lp-btn { width:100%; padding:10px; background:#d97706; color:#fff; border:none; border-radius:7px; font-weight:700; cursor:pointer; font-size:.9rem; }
     #lead-popup .lp-close { position:absolute; top:10px; right:13px; background:none; border:none; cursor:pointer; font-size:1.1rem; color:#94a3b8; }
     /* Audit score visual */
+    /* ── Sticky mobile CTA bar ── */
+    #mobile-cta-bar { display:none; position:fixed; bottom:0; left:0; right:0; z-index:7500; background:#d97706; color:#fff; padding:12px 16px; text-align:center; font-weight:700; font-size:.9rem; box-shadow:0 -4px 16px rgba(0,0,0,.15); }
+    #mobile-cta-bar a { color:#fff; text-decoration:none; }
+    @media (max-width:640px) { #mobile-cta-bar { display:block; } }
+
     .audit-score-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-top:28px; }
     .audit-score-card { background:#fff; border:2px solid #fde68a; border-radius:12px; padding:20px 16px; text-align:center; }
     .audit-score-card .score { font-size:2.4rem; font-weight:900; color:#d97706; display:block; }
@@ -555,6 +562,104 @@
     ⏳ Capacité limitée — Seulement <strong>3 audits gratuits</strong> disponibles cette semaine. <a href="#contact" style="color:#92400e;font-weight:700;">Réserver le vôtre →</a>
   </div>
 
+  <!-- AVANT / APRÈS -->
+  <section style="background:#fffbeb;padding:72px 20px;">
+    <div class="container">
+      <div class="section-head">
+        <h2>Avant &amp; Après — Ce que change un audit Nova Dev</h2>
+        <p>Même site, même entreprise. Résultats radicalement différents.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;margin:0 auto;">
+        <div style="background:#fff;border:2px solid #fca5a5;border-radius:16px;padding:28px;">
+          <div style="color:#dc2626;font-weight:800;font-size:1.05rem;margin-bottom:16px;">❌ Avant l'audit</div>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px;font-size:.9rem;color:#475569;">
+            <li>🐌 Score PageSpeed : <strong style="color:#dc2626">28/100</strong> — visiteurs qui rebondissent</li>
+            <li>📵 Site cassé sur mobile — 60%+ du trafic perdu</li>
+            <li>🔍 Invisible sur Google — zéro position page 1</li>
+            <li>💔 Pas de CTA clair — les visiteurs ne savent pas quoi faire</li>
+            <li>📋 Message flou — pas de différenciation, pas de conversion</li>
+            <li>🕵️ Problèmes cachés non identifiés par le propriétaire</li>
+          </ul>
+        </div>
+        <div style="background:#fff;border:2px solid #86efac;border-radius:16px;padding:28px;">
+          <div style="color:#16a34a;font-weight:800;font-size:1.05rem;margin-bottom:16px;">✅ Après audit &amp; corrections</div>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px;font-size:.9rem;color:#475569;">
+            <li>⚡ Score PageSpeed : <strong style="color:#16a34a">96/100</strong> — chargement &lt;1s</li>
+            <li>📱 Parfait sur tous les appareils — 0 visiteur mobile perdu</li>
+            <li>🏆 Page 1 Google sur les requêtes clés en 90 jours</li>
+            <li>🎯 CTA optimisé — taux de conversion ×3 à ×4</li>
+            <li>✍️ Message clair — adapté à votre cible, qui convertit</li>
+            <li>📊 Plan d'action priorisé — vous savez exactement quoi corriger</li>
+          </ul>
+        </div>
+      </div>
+      <p style="text-align:center;margin-top:32px;font-size:.95rem;color:#64748b;">Résultats moyens constatés sur nos 200 derniers audits. <a href="#contact" style="color:#d97706;font-weight:700;">Demander votre audit →</a></p>
+    </div>
+  </section>
+
+  <!-- TABLEAU COMPARATIF -->
+  <section style="padding:72px 20px;background:#fff;">
+    <div class="container">
+      <div class="section-head">
+        <h2>Pourquoi choisir Nova Dev plutôt qu'une autre solution ?</h2>
+        <p>Toutes les options ne se valent pas. Comparez avant de décider.</p>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.9rem;max-width:900px;margin:0 auto;">
+          <thead>
+            <tr style="background:#1c1209;color:#fff;">
+              <th style="padding:14px 18px;text-align:left;border-radius:10px 0 0 0;">Critère</th>
+              <th style="padding:14px 18px;text-align:center;background:#d97706;">✨ Nova Dev</th>
+              <th style="padding:14px 18px;text-align:center;">Grande agence</th>
+              <th style="padding:14px 18px;text-align:center;border-radius:0 10px 0 0;">Créateur DIY</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background:#fffbeb;">
+              <td style="padding:12px 18px;font-weight:600;color:#1c1209;">Audit gratuit</td>
+              <td style="padding:12px 18px;text-align:center;color:#16a34a;font-weight:700;">✅ 24h, sans engagement</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">❌ Discovery payante</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">❌ Inexistant</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 18px;font-weight:600;color:#1c1209;">Tarif</td>
+              <td style="padding:12px 18px;text-align:center;color:#16a34a;font-weight:700;">À partir de 150€</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">5 000€–50 000€</td>
+              <td style="padding:12px 18px;text-align:center;color:#d97706;">Gratuit → aspect amateur</td>
+            </tr>
+            <tr style="background:#fffbeb;">
+              <td style="padding:12px 18px;font-weight:600;color:#1c1209;">Délai de livraison</td>
+              <td style="padding:12px 18px;text-align:center;color:#16a34a;font-weight:700;">48h – 4 semaines</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">3 à 6 mois</td>
+              <td style="padding:12px 18px;text-align:center;color:#d97706;">Des mois de votre temps</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 18px;font-weight:600;color:#1c1209;">SEO inclus</td>
+              <td style="padding:12px 18px;text-align:center;color:#16a34a;font-weight:700;">✅ Toujours inclus</td>
+              <td style="padding:12px 18px;text-align:center;color:#d97706;">En option (coût +)</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">❌ Non inclus</td>
+            </tr>
+            <tr style="background:#fffbeb;">
+              <td style="padding:12px 18px;font-weight:600;color:#1c1209;">Performance mobile</td>
+              <td style="padding:12px 18px;text-align:center;color:#16a34a;font-weight:700;">✅ Optimisée par défaut</td>
+              <td style="padding:12px 18px;text-align:center;color:#d97706;">Variable</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">❌ Limité par le template</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 18px;font-weight:600;color:#1c1209;">Contact direct</td>
+              <td style="padding:12px 18px;text-align:center;color:#16a34a;font-weight:700;">✅ WhatsApp / chat</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">Chef de projet → file d'attente</td>
+              <td style="padding:12px 18px;text-align:center;color:#dc2626;">❌ Ticket uniquement</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align:center;margin-top:32px;">
+        <a class="btn btn-primary" href="#contact" style="font-size:1rem;padding:14px 32px;background:#d97706;border-color:#d97706;">Demander mon audit gratuit →</a>
+      </div>
+    </div>
+  </section>
+
   <!-- POUR QUI -->
   <section>
     <div class="container">
@@ -693,17 +798,20 @@
       <div class="testimonials">
         <article class="card quote">
           <div style="color:#f59e0b;font-size:1.1rem;margin-bottom:8px;">★★★★★</div>
-          <p>L'audit a révélé que notre score PageSpeed était à 28. En deux semaines, Nova Dev l'a porté à 94. Notre taux de rebond a chuté de 40%.</p>
+          <div style="background:#fffbeb;border-radius:8px;padding:7px 12px;margin-bottom:12px;font-size:.81rem;font-weight:700;color:#92400e;display:inline-block;">⚡ PageSpeed : 28 → 94 — Rebond -40% en 2 semaines</div>
+          <p>L'audit a révélé que notre score PageSpeed était à 28. En deux semaines, Nova Dev l'a porté à 94. Notre taux de rebond a chuté de 40% et nos ventes ont augmenté.</p>
           <strong>Directeur marketing, e-commerce mode — Lyon</strong>
         </article>
         <article class="card quote">
           <div style="color:#f59e0b;font-size:1.1rem;margin-bottom:8px;">★★★★★</div>
-          <p>On avait 800 visites par mois et zéro contact. Le rapport de Nova Dev a identifié 6 problèmes de conversion qu'on n'aurait jamais vus. Maintenant on génère 25 demandes par mois.</p>
+          <div style="background:#fffbeb;border-radius:8px;padding:7px 12px;margin-bottom:12px;font-size:.81rem;font-weight:700;color:#92400e;display:inline-block;">📈 0 → 25 demandes/mois en 8 semaines</div>
+          <p>On avait 800 visites par mois et zéro contact. Le rapport de Nova Dev a identifié 6 problèmes de conversion qu'on n'aurait jamais vus. Résultat : 25 demandes qualifiées par mois.</p>
           <strong>Fondateur, cabinet de conseil — Paris</strong>
         </article>
         <article class="card quote">
           <div style="color:#f59e0b;font-size:1.1rem;margin-bottom:8px;">★★★★★</div>
-          <p>J'aurais payé une agence pour refaire tout le site. L'audit a montré que seuls 3 éléments bloquaient la conversion. On a économisé 2 000€ et obtenu de meilleurs résultats.</p>
+          <div style="background:#fffbeb;border-radius:8px;padding:7px 12px;margin-bottom:12px;font-size:.81rem;font-weight:700;color:#92400e;display:inline-block;">💶 2 000€ économisés — Meilleurs résultats sans refonte totale</div>
+          <p>J'aurais payé une agence pour refaire tout le site. L'audit a montré que seuls 3 éléments bloquaient la conversion. On a économisé 2 000€ et obtenu de meilleurs résultats.</p>
           <strong>Responsable digital, PME industrielle — Bordeaux</strong>
         </article>
       </div>
@@ -722,7 +830,30 @@
         <article class="card"><h3>Que se passe-t-il après l'audit ?</h3><p>Vous recevez votre rapport. Vous pouvez l'utiliser en interne ou nous demander un devis pour les corrections. Aucune pression : beaucoup de nos clients utilisent simplement le rapport et reviennent quelques semaines plus tard.</p></article>
         <article class="card"><h3>Mon site n'est pas très sophistiqué. Est-ce quand même utile ?</h3><p>Surtout ! Les sites simples ont souvent les mêmes problèmes basiques (pas de balisage SEO, pas de sitemap, formulaire qui ne fonctionne pas sur mobile). Un audit de 24h peut transformer un site qui ne travaille pas en machine à leads.</p></article>
         <article class="card"><h3>Travaillez-vous sur tous types de sites ?</h3><p>Oui : sites vitrines, e-commerces, landing pages, sites de prestataires de services, cabinets et indépendants. Nous travaillons sur WordPress, Shopify, Wix, WebFlow, code sur mesure, etc.</p></article>
+        <article class="card"><h3>Combien de temps prend une correction après audit ?</h3><p>Les corrections chirurgicales (performance, SEO on-page, CTA) sont livrées en 48–72h. Une refonte complète basée sur l'audit prend 2 à 4 semaines selon l'état du site.</p></article>
+        <article class="card"><h3>Vous travaillez sur mon CMS actuel ou vous refaites tout ?</h3><p>Les deux. Nous pouvons optimiser votre site existant (WordPress, Shopify, Wix, Webflow) ou proposer une refonte si le CMS actuel limite les performances. Vous décidez après l'audit.</p></article>
+        <article class="card"><h3>L'audit couvre-t-il aussi le contenu ?</h3><p>Oui. Notre audit inclut une analyse de la clarté du message, des titres, des CTA et de la proposition de valeur. Ce n'est pas qu'un audit technique — c'est un diagnostic commercial complet.</p></article>
+        <article class="card"><h3>Puis-je réaliser les corrections moi-même avec le rapport ?</h3><p>Oui, absolument. Le rapport liste des actions prioritaires que vous pouvez implémenter vous-même. Beaucoup de clients font les corrections en interne et ne font appel à nous que pour les points techniques.</p></article>
       </div>
+    </div>
+  </section>
+
+  <!-- BARRE MOBILE STICKY CTA -->
+  <div id="mobile-cta-bar">
+    🔍 Audit gratuit en 24h — <a href="#contact">Demander maintenant →</a>
+  </div>
+
+  <!-- BANDE CTA FINALE -->
+  <section style="background:linear-gradient(135deg,#1c1209 0%,#78350f 100%);padding:80px 20px;text-align:center;">
+    <div class="container" style="max-width:680px;">
+      <div style="font-size:2.5rem;margin-bottom:16px;">🔍</div>
+      <h2 style="color:#fff;font-size:clamp(1.6rem,3.5vw,2.4rem);font-weight:900;margin:0 0 16px;">Votre site perd peut-être des contacts en ce moment même.</h2>
+      <p style="color:#fde68a;margin:0 0 32px;font-size:1.05rem;">Un audit gratuit en 24h pour savoir exactement pourquoi — et quoi corriger en priorité.</p>
+      <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+        <a class="btn btn-primary" href="#contact" style="font-size:1rem;padding:15px 32px;background:#d97706;border-color:#d97706;">Recevoir mon audit gratuit →</a>
+        <a href="https://wa.me/212665103031" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:15px 28px;border-radius:10px;font-weight:700;text-decoration:none;font-size:1rem;">💬 WhatsApp</a>
+      </div>
+      <p style="color:#d97706;font-size:.82rem;margin-top:18px;">🔒 Aucun spam. Sans engagement. Conforme RGPD. &nbsp;|&nbsp; <a href="/politique-de-confidentialite.html" style="color:#fde68a;">Confidentialité</a> · <a href="/cgv.html" style="color:#fde68a;">CGV</a></p>
     </div>
   </section>
 </main>
@@ -741,12 +872,17 @@
       <a href="#pricing">Tarifs</a>
       <a href="#methode">Méthode</a>
       <a href="#contact">Audit gratuit</a>
+      <a href="/politique-de-confidentialite.html">Confidentialité</a>
+      <a href="/mentions-legales.html">Mentions légales</a>
+      <a href="/cgv.html">CGV</a>
     </div>
   </div>
   <div style="text-align:center;padding:14px;font-size:.78rem;color:#64748b;border-top:1px solid #e2e8f0;margin-top:12px;">
-    © 2026 Nova Dev. Tous droits réservés. |
-    <a href="https://novadev-audit.vercel.app" style="color:#d97706;">EN</a> |
-    Diagnostic web expert pour entreprises ambitieuses.
+    © 2026 Nova Dev. Tous droits réservés. &nbsp;|
+    <a href="/politique-de-confidentialite.html" style="color:#d97706;">Confidentialité</a> &nbsp;|
+    <a href="/mentions-legales.html" style="color:#d97706;">Mentions légales</a> &nbsp;|
+    <a href="/cgv.html" style="color:#d97706;">CGV</a> &nbsp;|
+    <a href="https://novadev-audit.vercel.app" style="color:#d97706;">🇬🇧 EN</a>
   </div>
 </footer>
 
