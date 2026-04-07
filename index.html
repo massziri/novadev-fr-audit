@@ -211,11 +211,11 @@
       --nd-light: #fffbeb;
     }
     #scroll-bar { position:fixed; top:0; left:0; width:0; height:3px; background:linear-gradient(90deg,#d97706,#f59e0b); z-index:9999; transition:width .1s; }
-    #sticky-banner { display:flex; align-items:center; justify-content:center; gap:12px; background:linear-gradient(90deg,#1c1209,#2d1f0a); color:#fff; font-size:.85rem; padding:9px 16px; position:relative; z-index:900; flex-wrap:wrap; }
+    #sticky-banner { display:flex; align-items:center; justify-content:center; gap:12px; background:linear-gradient(90deg,#1c1209,#2d1f0a); color:#fff; font-size:.85rem; padding:9px 16px; position:relative; z-index:900; flex-wrap:wrap; max-width:100%; overflow:hidden; box-sizing:border-box; }
     #sticky-banner a { color:#fde68a; font-weight:700; text-decoration:underline; white-space:nowrap; }
     #sticky-banner .close-banner { position:absolute; right:12px; background:none; border:none; color:#fff; cursor:pointer; font-size:1.1rem; line-height:1; }
-    #social-proof { background:#fffbeb; border-bottom:1px solid #fde68a; padding:8px 0; overflow:hidden; font-size:.82rem; color:#92400e; font-weight:500; }
-    .ticker-inner { display:flex; gap:48px; white-space:nowrap; animation:ticker 28s linear infinite; }
+    #social-proof { background:#fffbeb; border-bottom:1px solid #fde68a; padding:8px 0; overflow:hidden; font-size:.82rem; color:#92400e; font-weight:500; max-width:100%; width:100%; }
+    .ticker-inner { display:flex; gap:48px; white-space:nowrap; animation:ticker 28s linear infinite; will-change:transform; }
     .ticker-inner span { padding:0 8px; }
     @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
     #exit-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:10000; align-items:center; justify-content:center; }
@@ -273,6 +273,22 @@
     .problem-list li:last-child { border-bottom:none; }
     .problem-list .icon-bad { color:#dc2626; font-size:1.2rem; flex-shrink:0; }
     .problem-list .icon-fix { color:#16a34a; font-size:1.2rem; flex-shrink:0; }
+
+    /* ── GLOBAL OVERFLOW FIX ── */
+    html, body { overflow-x:hidden !important; max-width:100% !important; }
+    *, *::before, *::after { max-width:100%; }
+    section, header, footer, div { box-sizing:border-box; }
+    img, video, svg, table { max-width:100%; }
+    @media (max-width:640px) {
+      /* Force all inline grids to single column on mobile */
+      [style*="grid-template-columns:1fr 1fr"],
+      [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+      /* Prevent any element from breaking out */
+      .container { overflow:hidden; }
+      pre, code { overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
+    }
   </style>
 </head>
 <body>
@@ -332,7 +348,7 @@
     <div class="container hero-grid">
       <div>
         <div class="eyebrow" style="color:#fbbf24;">Spécialistes de l'audit et de la refonte web orientée données</div>
-        <h1 style="color:#fff;">Votre site reçoit des visiteurs<br /><span style="color:#fbbf24;">mais ne génère pas de contacts ?</span><br />Nous savons pourquoi.</h1>
+        <h1 style="color:#fff;">Votre site reçoit des visiteurs <span style="color:#fbbf24;">mais ne génère pas de contacts ?</span> Nous savons pourquoi.</h1>
         <p style="color:#d1d5db;">Nova Dev est une agence spécialisée en diagnostic de conversion et refonte web. Nous n'inventons pas un nouveau design au hasard — nous analysons les données de votre site, identifions précisément ce qui bloque vos visiteurs, et corrigeons uniquement ce qui en vaut la peine.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#contact" style="background:#d97706;border-color:#d97706;">Obtenir mon audit gratuit</a>
@@ -570,7 +586,7 @@
         <h2>Avant &amp; Après — Ce que change un audit Nova Dev</h2>
         <p>Même site, même entreprise. Résultats radicalement différents.</p>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;margin:0 auto;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto;">
         <div style="background:#fff;border:2px solid #fca5a5;border-radius:16px;padding:28px;">
           <div style="color:#dc2626;font-weight:800;font-size:1.05rem;margin-bottom:16px;">❌ Avant l'audit</div>
           <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px;font-size:.9rem;color:#475569;">
