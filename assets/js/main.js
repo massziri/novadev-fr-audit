@@ -16,10 +16,10 @@
       network: 'A network error occurred. Please try again in a moment.'
     },
     fr: {
-      required: 'Veuillez remplir les champs obligatoires avant d\u2019envoyer votre demande.',
+      required: 'Veuillez remplir les champs obligatoires avant d’envoyer votre demande.',
       sending: 'Envoi en cours…',
       submit: 'Réserver ma consultation',
-      fallback: 'Nous n\u2019avons pas pu envoyer votre demande pour le moment. Merci de réessayer dans un instant.',
+      fallback: 'Nous n’avons pas pu envoyer votre demande pour le moment. Merci de réessayer dans un instant.',
       network: 'Une erreur réseau est survenue. Merci de réessayer dans un instant.'
     }
   };
@@ -60,10 +60,15 @@
     hideAlerts();
 
     const data = new FormData(form);
-    const firstName = (data.get('fname') || '').toString().trim();
-    const lastName = (data.get('lname') || '').toString().trim();
-    const email = (data.get('email') || '').toString().trim();
-    const company = (data.get('company') || '').toString().trim();
+    const payload = {};
+    data.forEach((value, key) => {
+      payload[key] = value;
+    });
+
+    const firstName = (payload.fname || '').toString().trim();
+    const lastName = (payload.lname || '').toString().trim();
+    const email = (payload.email || '').toString().trim();
+    const company = (payload.company || '').toString().trim();
 
     if (!firstName || !lastName || !email || !company) {
       showAlert(error, t.required);
@@ -77,23 +82,26 @@
     }
 
     try {
-      const response = await fetch('https://formsubmit.co/ajax/admin@novatvhub.com', {
+      const response = await fetch('/api/submit', {
         method: 'POST',
-        headers: { 'Accept': 'application/json' },
-        body: data
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' 
+        },
+        body: JSON.stringify(payload)
       });
 
       const result = await response.json().catch(() => ({}));
-      const successFlag = result.success === true || result.success === 'true';
-
-      if (response.ok && successFlag) {
-        fbq('track', 'Lead');
+      
+      if (response.ok && (result.success === true || result.success === 'true')) {
+        if (typeof fbq === 'function') fbq('track', 'Lead');
         window.location.href = 'thank-you.html';
         return;
       }
 
       showAlert(error, result.message || t.fallback);
     } catch (err) {
+      console.error('Submission error:', err);
       showAlert(error, t.network);
     } finally {
       if (submit) {

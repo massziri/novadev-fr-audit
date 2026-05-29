@@ -3,7 +3,8 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/thank-you", "destination": "/thank-you.html" },
-    { "source": "/api/chat", "destination": "/api/chat.js" }
+    { "source": "/api/chat", "destination": "/api/chat.js" },
+    { "source": "/api/submit", "destination": "/api/submit.js" }
   ],
   "headers": [
     {
